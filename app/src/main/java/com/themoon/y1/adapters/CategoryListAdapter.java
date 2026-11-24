@@ -56,6 +56,130 @@ public class CategoryListAdapter extends BaseAdapter {
         }
     }
 
+    private static final java.util.concurrent.ExecutorService COVER_LOADER = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private static Drawable defaultCoverDrawable;
+    private static java.util.HashMap<String, String> albumArtistMap;
+    private static int albumArtistMapSize = -1;
+
+    private static String albumArtist(String album) {
+        if (albumArtistMap == null || albumArtistMapSize != MainActivity.customLibrary.size()) {
+            java.util.HashMap<String, String> m = new java.util.HashMap<>();
+            for (SongItem song : MainActivity.customLibrary) {
+                if (song.album != null && song.artist != null && !song.artist.isEmpty() && !m.containsKey(song.album)) {
+                    m.put(song.album, song.artist);
+                }
+            }
+            albumArtistMap = m;
+            albumArtistMapSize = MainActivity.customLibrary.size();
+        }
+        String a = albumArtistMap.get(album);
+        return a != null ? a : "Unknown Artist";
+    }
+
+    private static Drawable defaultCover(float d) {
+        if (defaultCoverDrawable == null) {
+            int size = (int) (60 * d);
+            Bitmap b = BitmapFactory.decodeResource(MainActivity.instance.getResources(), R.drawable.default_album);
+            defaultCoverDrawable = new BitmapDrawable(MainActivity.instance.getResources(), Bitmap.createScaledBitmap(b, size, size, true));
+            defaultCoverDrawable.setBounds(0, 0, size, size);
+        }
+        return defaultCoverDrawable;
+    }
+
+    // Runs on COVER_LOADER: finds the album's art (saved path, manual cover, embedded tag) and scales it.
+    private static Drawable buildCover(String name, float d) {
+        Drawable leftDrawable = null;
+        try {
+                String artPath = "";
+                byte[] embeddedPic = null;
+
+                for (SongItem song : MainActivity.customLibrary) {
+                    if (song.album != null && song.album.equals(name)) {
+                        String trackPath = song.file.getAbsolutePath();
+
+                        if (MainActivity.instance.prefs != null) {
+                            String savedPath = MainActivity.instance.prefs.getString("album_art_" + trackPath, "");
+                            if (!savedPath.isEmpty() && new File(savedPath).exists()) {
+                                artPath = savedPath;
+                                break;
+                            }
+                        }
+
+                        String safeFileName = song.file.getName().replace(".mp3", "").replace(".flac", "").replace(".wav", "").replace(".m4a", "").replace(".aac", "").replace(".ogg", "");
+                        File manualCoverFile = new File(StoragePaths.getCoversDir(), safeFileName + ".jpg");
+                        if (manualCoverFile.exists()) {
+                            artPath = manualCoverFile.getAbsolutePath();
+                            break;
+                        }
+
+                        if (embeddedPic == null) {
+                            if (trackPath.toLowerCase().endsWith(".opus")) {
+                                try {
+                                    Object[] opusTags = com.themoon.y1.managers.AudioPlayerManager.getInstance().extractOpusMetadata(new File(trackPath));
+                                    if (opusTags != null && opusTags.length > 5 && opusTags[5] != null) {
+                                        embeddedPic = (byte[]) opusTags[5];
+                                    }
+                                } catch (Exception e) {}
+                            } else if (trackPath.toLowerCase().endsWith(".flac")) {
+                                try {
+                                    Object[] flacTags = com.themoon.y1.managers.AudioPlayerManager.getInstance().extractFlacMetadata(new File(trackPath));
+                                    if (flacTags != null && flacTags.length > 5 && flacTags[5] != null) {
+                                        embeddedPic = (byte[]) flacTags[5];
+                                    }
+                                } catch (Exception e) {}
+                            } else {
+                                android.media.MediaMetadataRetriever mmr = null;
+                                java.io.FileInputStream fis = null;
+                                try {
+                                    mmr = new android.media.MediaMetadataRetriever();
+                                    fis = new java.io.FileInputStream(trackPath);
+                                    mmr.setDataSource(fis.getFD());
+                                    byte[] pic = mmr.getEmbeddedPicture();
+                                    if (pic != null && pic.length > 0) {
+                                        embeddedPic = pic;
+                                    }
+                                } catch (Exception e) {
+                                } finally {
+                                    try { if (fis != null) fis.close(); } catch (Exception e) {}
+                                    try { if (mmr != null) mmr.release(); } catch (Exception e) {}
+                                }
+                            }
+                        }
+                    }
+                }
+
+                int size = (int) (60 * d); // 🚀 60dp 썸네일 크기
+                Bitmap bmp = null;
+
+                if (!artPath.isEmpty()) {
+                    try {
+                        BitmapFactory.Options opts = new BitmapFactory.Options();
+                        opts.inSampleSize = 2;
+                        bmp = BitmapFactory.decodeFile(artPath, opts);
+                    } catch (Throwable e) {}
+                } else if (embeddedPic != null) {
+                    try {
+                        BitmapFactory.Options opts = new BitmapFactory.Options();
+                        opts.inSampleSize = 2;
+                        bmp = BitmapFactory.decodeByteArray(embeddedPic, 0, embeddedPic.length, opts);
+                    } catch (Throwable e) {}
+                }
+
+                if (bmp == null) {
+                    bmp = BitmapFactory.decodeResource(MainActivity.instance.getResources(), R.drawable.default_album);
+                }
+
+                if (bmp != null) {
+                    Bitmap scaled = Bitmap.createScaledBitmap(bmp, size, size, true);
+                    leftDrawable = new BitmapDrawable(MainActivity.instance.getResources(), scaled);
+                    leftDrawable.setBounds(0, 0, size, size);
+                }
+        } catch (Throwable t) {
+            return null;
+        }
+        return leftDrawable;
+    }
+
     private boolean isAlbumType() {
         return type != null && (type.equals("ALBUM") || type.equals("ARTIST_ALBUM") || 
                type.equals("YEAR_ARTIST_ALBUM") || type.equals("GENRE_ARTIST_ALBUM"));
@@ -149,110 +273,33 @@ public class CategoryListAdapter extends BaseAdapter {
             holder.tvTitle.setText(name);
 
             // 🚀 [추가] 앨범 아티스트 이름 조회 및 하단 표시!
-            String artistName = "";
-            for (SongItem song : MainActivity.customLibrary) {
-                if (song.album != null && song.album.equals(name)) {
-                    if (song.artist != null && !song.artist.isEmpty()) {
-                        artistName = song.artist;
-                        break;
-                    }
-                }
-            }
-            if (artistName.isEmpty()) {
-                artistName = "Unknown Artist";
-            }
+            String artistName = albumArtist(name);
             holder.tvArtist.setText(artistName);
 
             // 1. 메모리 금고에 이미 불러온 그림이 있는지 확인!
             Drawable leftDrawable = coverCache.get(name);
 
-            // 2. 금고에 그림이 없다면? 직접 찾아서 그립니다.
+            // Fork: a cache miss shows the default art now and loads the real cover in the background
+            // (it opens the song file and decodes the picture, which stalled scrolling on the UI thread)
+            holder.ivCover.setTag(name);
             if (leftDrawable == null) {
-                String artPath = "";
-                byte[] embeddedPic = null;
-
-                for (SongItem song : MainActivity.customLibrary) {
-                    if (song.album != null && song.album.equals(name)) {
-                        String trackPath = song.file.getAbsolutePath();
-
-                        if (MainActivity.instance.prefs != null) {
-                            String savedPath = MainActivity.instance.prefs.getString("album_art_" + trackPath, "");
-                            if (!savedPath.isEmpty() && new File(savedPath).exists()) {
-                                artPath = savedPath;
-                                break;
+                leftDrawable = defaultCover(d);
+                final ImageView target = holder.ivCover;
+                final float density = d;
+                COVER_LOADER.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        final Drawable cover = buildCover(name, density);
+                        if (cover == null) return;
+                        target.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                coverCache.put(name, cover);
+                                if (name.equals(target.getTag())) target.setImageDrawable(cover);
                             }
-                        }
-
-                        String safeFileName = song.file.getName().replace(".mp3", "").replace(".flac", "").replace(".wav", "").replace(".m4a", "").replace(".aac", "").replace(".ogg", "");
-                        File manualCoverFile = new File(StoragePaths.getCoversDir(), safeFileName + ".jpg");
-                        if (manualCoverFile.exists()) {
-                            artPath = manualCoverFile.getAbsolutePath();
-                            break;
-                        }
-
-                        if (embeddedPic == null) {
-                            if (trackPath.toLowerCase().endsWith(".opus")) {
-                                try {
-                                    Object[] opusTags = com.themoon.y1.managers.AudioPlayerManager.getInstance().extractOpusMetadata(new File(trackPath));
-                                    if (opusTags != null && opusTags.length > 5 && opusTags[5] != null) {
-                                        embeddedPic = (byte[]) opusTags[5];
-                                    }
-                                } catch (Exception e) {}
-                            } else if (trackPath.toLowerCase().endsWith(".flac")) {
-                                try {
-                                    Object[] flacTags = com.themoon.y1.managers.AudioPlayerManager.getInstance().extractFlacMetadata(new File(trackPath));
-                                    if (flacTags != null && flacTags.length > 5 && flacTags[5] != null) {
-                                        embeddedPic = (byte[]) flacTags[5];
-                                    }
-                                } catch (Exception e) {}
-                            } else {
-                                android.media.MediaMetadataRetriever mmr = null;
-                                java.io.FileInputStream fis = null;
-                                try {
-                                    mmr = new android.media.MediaMetadataRetriever();
-                                    fis = new java.io.FileInputStream(trackPath);
-                                    mmr.setDataSource(fis.getFD());
-                                    byte[] pic = mmr.getEmbeddedPicture();
-                                    if (pic != null && pic.length > 0) {
-                                        embeddedPic = pic;
-                                    }
-                                } catch (Exception e) {
-                                } finally {
-                                    try { if (fis != null) fis.close(); } catch (Exception e) {}
-                                    try { if (mmr != null) mmr.release(); } catch (Exception e) {}
-                                }
-                            }
-                        }
+                        });
                     }
-                }
-
-                int size = (int) (60 * d); // 🚀 60dp 썸네일 크기
-                Bitmap bmp = null;
-
-                if (!artPath.isEmpty()) {
-                    try {
-                        BitmapFactory.Options opts = new BitmapFactory.Options();
-                        opts.inSampleSize = 2;
-                        bmp = BitmapFactory.decodeFile(artPath, opts);
-                    } catch (Throwable e) {}
-                } else if (embeddedPic != null) {
-                    try {
-                        BitmapFactory.Options opts = new BitmapFactory.Options();
-                        opts.inSampleSize = 2;
-                        bmp = BitmapFactory.decodeByteArray(embeddedPic, 0, embeddedPic.length, opts);
-                    } catch (Throwable e) {}
-                }
-
-                if (bmp == null) {
-                    bmp = BitmapFactory.decodeResource(MainActivity.instance.getResources(), R.drawable.default_album);
-                }
-
-                if (bmp != null) {
-                    Bitmap scaled = Bitmap.createScaledBitmap(bmp, size, size, true);
-                    leftDrawable = new BitmapDrawable(MainActivity.instance.getResources(), scaled);
-                    leftDrawable.setBounds(0, 0, size, size);
-                    coverCache.put(name, leftDrawable);
-                }
+                });
             }
 
             holder.ivCover.setImageDrawable(leftDrawable);
