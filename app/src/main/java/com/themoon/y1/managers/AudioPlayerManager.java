@@ -901,7 +901,7 @@ public class AudioPlayerManager {
             if (main.tvPlayerAlbum != null) {
                 if (al != null && !al.trim().isEmpty()) main.tvPlayerAlbum.setText(al);
                 else {
-                    String albumFallback = track.getAbsolutePath().contains("/Audiobooks") || main.isAudiobookLibraryMode ? "Unknown Book" : "Unknown Album";
+                    String albumFallback = track.getAbsolutePath().contains("/Audiobooks") || main.isAudiobookLibraryMode ? "Unknown Book" : ""; // fork: blank, not "Unknown Album", now that the line is shown
                     try {
                         String folderName = track.getParentFile().getName();
                         if (folderName != null && !folderName.equals("Music") && !folderName.equals("Audiobooks") && !folderName.equals("sdcard0") && !folderName.equals("Y1_Playlists")) {

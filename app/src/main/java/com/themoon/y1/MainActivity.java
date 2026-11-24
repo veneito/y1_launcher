@@ -10995,7 +10995,7 @@ public class MainActivity extends Activity {
             if (ivAlbumArt != null) ivAlbumArt.setVisibility(View.INVISIBLE);
             if (tvPlayerTitle != null) tvPlayerTitle.setVisibility(View.INVISIBLE);
             if (tvPlayerArtist != null) tvPlayerArtist.setVisibility(View.INVISIBLE);
-            if (tvPlayerAlbum != null) tvPlayerAlbum.setVisibility(View.GONE); // 🚀 앨범 텍스트는 GONE 유지 (프로그레스바 위치 사수)
+            if (tvPlayerAlbum != null) tvPlayerAlbum.setVisibility(View.VISIBLE); // fork: show the album (was kept GONE for the progress bar)
 
             boolean hasLyrics = (currentLyrics != null && !currentLyrics.isEmpty()) || (plainLyrics != null && !plainLyrics.isEmpty());
 
@@ -11015,7 +11015,7 @@ public class MainActivity extends Activity {
             if (ivAlbumArt != null) ivAlbumArt.setVisibility(View.VISIBLE);
             if (tvPlayerTitle != null) tvPlayerTitle.setVisibility(View.VISIBLE);
             if (tvPlayerArtist != null) tvPlayerArtist.setVisibility(View.VISIBLE);
-            if (tvPlayerAlbum != null) tvPlayerAlbum.setVisibility(View.GONE); // 🚀 기본 레이아웃에서 앨범 텍스트 감춤 유지
+            if (tvPlayerAlbum != null) tvPlayerAlbum.setVisibility(View.VISIBLE); // fork: show the album
 
             if (visualizerView != null) visualizerView.setVisibility(View.GONE);
             if (lyricScrollView != null) lyricScrollView.setVisibility(View.GONE);
