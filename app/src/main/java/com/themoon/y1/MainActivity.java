@@ -7309,7 +7309,10 @@ public class MainActivity extends Activity {
                 View btnShuffleAll = createListButtonWithIcon("", t("Shuffle All"));
                 btnShuffleAll.setOnClickListener(v -> {
                     clickFeedback();
-                    List<File> all = collectAudioFilesFromFileOrDir(rootFolder); // rootFolder is the Music dir
+                    // the scanned library is already in memory; walking ~900 files on the FAT storage stalled the UI
+                    List<File> all = new ArrayList<>();
+                    for (SongItem s : customLibrary) if (s.file != null) all.add(s.file);
+                    if (all.isEmpty()) all = collectAudioFilesFromFileOrDir(rootFolder); // library not scanned yet
                     if (all.isEmpty()) {
                         Toast.makeText(MainActivity.this, t("No playable audio files found."), Toast.LENGTH_SHORT).show();
                         return;
