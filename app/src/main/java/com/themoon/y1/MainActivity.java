@@ -864,8 +864,10 @@ public class MainActivity extends Activity {
                                     a = "Unknown Artist";
                                 }
 
+                                String al = (tvPlayerAlbum != null && tvPlayerAlbum.getText() != null) ? tvPlayerAlbum.getText().toString().trim() : "";
+                                if ("Unknown Album".equalsIgnoreCase(al) || "Unknown Book".equalsIgnoreCase(al) || "Loading...".equals(al)) al = "";
                                 long timestamp = System.currentTimeMillis() / 1000;
-                                com.themoon.y1.managers.LastFmManager.getInstance(MainActivity.this).scrobble(tr, a, timestamp);
+                                com.themoon.y1.managers.LastFmManager.getInstance(MainActivity.this).scrobble(tr, a, al, timestamp);
                             }
                         }
                     }

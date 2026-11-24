@@ -28,7 +28,8 @@ public class LastFmManager {
     // 🚀 모든 통신 및 보안 서명(API_SECRET) 처리를 전담하는 Vercel 프록시 URL
     // Fork: scrobble to the self-hosted Maloja (its Last.fm-compatible API) instead of Last.fm.
     // Log in with any username and a Maloja API key as the password.
-    private static final String PROXY_URL = "https://maloja.veneito.dev/apis/audioscrobbler/2.0/";
+    private static final String PROXY_URL = "https://maloja.veneito.dev/apis/audioscrobbler/2.0/"; // login = key check
+    private static final String MALOJA_SCROBBLE_URL = "https://maloja.veneito.dev/apis/mlj_1/newscrobble";
     private static final String CALLBACK_URL = "y1://lastfm-callback";
 
     private static LastFmManager instance;
@@ -238,29 +239,6 @@ public class LastFmManager {
         });
     }
 
-    // Blocking re-login with the saved Maloja key; call from a background thread only.
-    private boolean relogin() {
-        String key = prefs.getString("maloja_key", null);
-        if (key == null) return false;
-        try {
-            Response r = httpClient.newCall(new Request.Builder().url(PROXY_URL).post(new FormBody.Builder()
-                    .add("method", "auth.getMobileSession")
-                    .add("username", username != null ? username : "y1")
-                    .add("password", key)
-                    .add("format", "json")
-                    .build()).build()).execute();
-            if (!r.isSuccessful() || r.body() == null) { r.close(); return false; }
-            JSONObject json = new JSONObject(r.body().string());
-            if (!json.has("session")) return false;
-            sessionKey = json.getJSONObject("session").getString("key");
-            prefs.edit().putString("session_key", sessionKey).apply();
-            return true;
-        } catch (Exception e) {
-            Log.e(TAG, "Maloja re-login failed: " + e.getMessage());
-            return false;
-        }
-    }
-
     public void logout() {
         sessionKey = null;
         username = null;
@@ -297,9 +275,9 @@ public class LastFmManager {
     }
 
     // Queues a scrobble in SQLite
-    public void scrobble(String track, String artist, long timestampUnix) {
+    public void scrobble(String track, String artist, String album, long timestampUnix) {
         if (!isEnabled()) return;
-        dbHelper.addScrobble(track, artist, timestampUnix);
+        dbHelper.addScrobble(track, artist, album, timestampUnix);
         processQueue(); // Attempt to process immediately
     }
 
@@ -316,45 +294,29 @@ public class LastFmManager {
             @Override
             public void run() {
                 try {
-                    boolean reloggedIn = false;
+                    String key = prefs.getString("maloja_key", null);
+                    if (key == null) return; // no saved key: log in again on the web page
                     while (true) {
-                        // One track per request: Maloja's batched track[i] path is broken (wrong scrobble() call)
                         List<ScrobbleItem> batch = dbHelper.getBatch(1);
                         if (batch.isEmpty()) break;
                         ScrobbleItem item = batch.get(0);
 
-                        Request request = new Request.Builder()
-                                .url(PROXY_URL)
-                                .post(new FormBody.Builder()
-                                        .add("method", "track.scrobble")
-                                        .add("sk", sessionKey)
-                                        .add("track", item.track)
-                                        .add("artist", item.artist)
-                                        .add("timestamp", String.valueOf(item.timestamp))
-                                        .build())
-                                .build();
+                        // Maloja's own API, not its Last.fm one: that one drops the album (no covers, no album charts)
+                        FormBody.Builder form = new FormBody.Builder()
+                                .add("key", key)
+                                .add("artist", item.artist)
+                                .add("title", item.track)
+                                .add("time", String.valueOf(item.timestamp));
+                        if (item.album != null && !item.album.isEmpty()) form.add("album", item.album);
 
-                        Response response = httpClient.newCall(request).execute();
-                        if (response.code() == 403 && !reloggedIn) { // Maloja restarted and dropped the session
-                            response.close();
-                            reloggedIn = true;
-                            if (relogin()) continue;
-                            break;
-                        }
-                        if (response.isSuccessful() && response.body() != null) {
-                            String bodyStr = response.body().string();
-                            JSONObject json = new JSONObject(bodyStr);
-                            if (json.has("scrobbles")) {
-                                dbHelper.removeScrobble(item.id);
-                                Log.d(TAG, "Scrobbled 1 track successfully. Remaining in queue: " + dbHelper.getBatch(1).size());
-                            } else if (json.has("error")) {
-                                Log.e(TAG, "Scrobble error: " + json.getString("message"));
-                                break; // Last.fm 에러 응답 시 루프 중단
-                            } else {
-                                break;
-                            }
+                        Response response = httpClient.newCall(new Request.Builder()
+                                .url(MALOJA_SCROBBLE_URL).post(form.build()).build()).execute();
+                        String bodyStr = response.body() != null ? response.body().string() : "";
+                        if (response.isSuccessful() && bodyStr.contains("\"success\"")) {
+                            dbHelper.removeScrobble(item.id);
                         } else {
-                            break; // HTTP 에러 또는 네트워크 단절 시 루프 중단 (DB에 보존)
+                            Log.e(TAG, "Scrobble failed (" + response.code() + "): " + bodyStr);
+                            break; // keep it queued; retried on the next scrobble or Wi-Fi connect
                         }
                     }
                 } catch (Exception e) {
@@ -377,11 +339,12 @@ public class LastFmManager {
         String track;
         String artist;
         long timestamp;
+        String album;
     }
 
     private static class ScrobbleDatabaseHelper extends SQLiteOpenHelper {
         private static final String DATABASE_NAME = "scrobbles.db";
-        private static final int DATABASE_VERSION = 1;
+        private static final int DATABASE_VERSION = 2; // v2: album column
         private static final String TABLE_SCROBBLES = "scrobbles";
 
         public ScrobbleDatabaseHelper(Context context) {
@@ -394,22 +357,23 @@ public class LastFmManager {
                     "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                     "track TEXT," +
                     "artist TEXT," +
-                    "timestamp INTEGER)";
+                    "timestamp INTEGER," +
+                    "album TEXT)";
             db.execSQL(CREATE_TABLE);
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            db.execSQL("DROP TABLE IF EXISTS " + TABLE_SCROBBLES);
-            onCreate(db);
+            if (oldVersion < 2) db.execSQL("ALTER TABLE " + TABLE_SCROBBLES + " ADD COLUMN album TEXT"); // keeps queued plays
         }
 
-        public void addScrobble(String track, String artist, long timestamp) {
+        public void addScrobble(String track, String artist, String album, long timestamp) {
             SQLiteDatabase db = this.getWritableDatabase();
             ContentValues values = new ContentValues();
             values.put("track", track);
             values.put("artist", artist);
             values.put("timestamp", timestamp);
+            values.put("album", album);
             db.insert(TABLE_SCROBBLES, null, values);
             db.close();
         }
@@ -425,6 +389,7 @@ public class LastFmManager {
                     item.track = cursor.getString(1);
                     item.artist = cursor.getString(2);
                     item.timestamp = cursor.getLong(3);
+                    item.album = cursor.getString(cursor.getColumnIndex("album"));
                     list.add(item);
                 } while (cursor.moveToNext());
             }
