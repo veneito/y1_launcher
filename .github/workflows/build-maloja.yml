@@ -25,7 +25,8 @@ jobs:
       - name: Build ROM
         run: |
           APK="$PWD/app/build/outputs/apk/debug/app-debug.apk"
-          ./scripts/build-rom.sh a --launcher-apk-url "file://$APK" dist/rom.zip
+          mkdir -p dist  # absolute output path: the script cds into its work dir before zipping
+          ./scripts/build-rom.sh a --launcher-apk-url "file://$APK" "$PWD/dist/rom.zip"
 
       - uses: actions/upload-artifact@v4
         with:
