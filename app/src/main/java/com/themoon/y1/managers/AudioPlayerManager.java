@@ -473,7 +473,6 @@ public class AudioPlayerManager {
         main.originalPlaylist.addAll(newList);
         main.currentPlaylist.clear();
         main.currentPlaylist.addAll(newList);
-        android.util.Log.d("Y1Queue", "playTrackList size=" + newList.size() + " index=" + index + " first=" + newList.get(0).getName() + " second=" + (newList.size() > 1 ? newList.get(1).getName() : "-"), new Throwable("caller"));
 
         // 🚀 4. [절대 셔플 엔진 가동] 설정에서 셔플 모드가 켜져 있다면? 무조건 섞습니다!
         boolean isShuffle = main.prefs.getBoolean("shuffle", false);
@@ -711,7 +710,6 @@ public class AudioPlayerManager {
         if (main == null || main.currentPlaylist.isEmpty()) return;
         main.lastTrackChangeTime = System.currentTimeMillis();
         main.currentIndex = (main.currentIndex + 1) % main.currentPlaylist.size();
-        android.util.Log.d("Y1Queue", "next -> " + main.currentIndex + "/" + main.currentPlaylist.size() + " " + main.currentPlaylist.get(main.currentIndex).getName());
         prepareMusicTrack(main.currentIndex);
         main.updatePlayerUI();
     }
