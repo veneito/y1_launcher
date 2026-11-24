@@ -2136,6 +2136,7 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 clickFeedback();
+                if (isServerRunning) autoServerPaused = true; // stopped by hand: no auto-restart until unplugged
                 toggleWebServer();
                 updateWebServerUI();
             }
@@ -4577,7 +4578,7 @@ public class MainActivity extends Activity {
     // Fork: hands-free sync. While plugged in (charging) on the home network, the web server runs so the
     // server's sync-y1 timer can reach the Y1; unplugging stops it. "Home" = the network where the web
     // server was last started by hand. Never on other networks: the web server has no password.
-    private boolean lastPlugged, webServerAutoStarted, webServerAutoStarting;
+    private boolean lastPlugged, webServerAutoStarted, webServerAutoStarting, autoServerPaused;
 
     private String currentSsid() {
         try {
@@ -4591,7 +4592,8 @@ public class MainActivity extends Activity {
 
     private void autoWebServer(boolean plugged) {
         lastPlugged = plugged;
-        if (plugged && !isServerRunning) {
+        if (!plugged) autoServerPaused = false;
+        if (plugged && !isServerRunning && !autoServerPaused) {
             String home = prefs.getString("home_ssid", null);
             if (home == null || !home.equals(currentSsid())) return;
             webServerAutoStarting = true;
@@ -11800,6 +11802,7 @@ public class MainActivity extends Activity {
                                     t("The Web Server is still active. Do you want to shut it down completely and exit?"))
                             .setPositiveButton(t("Stop Server"), new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog, int which) {
+                                    autoServerPaused = true; // stopped by hand: no auto-restart until unplugged
                                     toggleWebServer();
                                     changeScreen(backTargetForUtility); // 🚀 복귀!
                                 }
