@@ -408,7 +408,7 @@ public class SettingsMenuManager {
 
         final LastFmManager lfm = LastFmManager.getInstance(main);
         final String statusText = lfm.isEnabled() ? lfm.getUsername() : t("Not logged in");
-        final LinearLayout btnLastFm = createSettingRow(t("Last.fm Scrobbling"), statusText + " 〉");
+        final LinearLayout btnLastFm = createSettingRow(t("Maloja Scrobbling"), statusText + " 〉");
         btnLastFm.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -443,7 +443,7 @@ public class SettingsMenuManager {
 
         // 1. 타이틀
         TextView tvTitle = new TextView(main);
-        tvTitle.setText("🎵 " + t("Last.fm Login Guide"));
+        tvTitle.setText("🎵 " + t("Maloja Login Guide"));
         tvTitle.setTextColor(ThemeManager.getTextColorPrimary());
         tvTitle.setTextSize(18f);
         tvTitle.setTypeface(ThemeManager.getCustomFont(), Typeface.BOLD);
@@ -453,7 +453,7 @@ public class SettingsMenuManager {
 
         // 2. 설명 메시지 (다국어 지원)
         TextView tvMsg = new TextView(main);
-        tvMsg.setText(t("Please start Wireless PC Upload (Web Server) and log in to Last.fm from your PC or smartphone browser."));
+        tvMsg.setText(t("Please start Wireless PC Upload (Web Server) and log in to Maloja from your PC or smartphone browser, with a Maloja API key as the password."));
         tvMsg.setTextColor(ThemeManager.getTextColorSecondary());
         tvMsg.setTextSize(14f);
         tvMsg.setGravity(Gravity.CENTER);
@@ -549,7 +549,7 @@ public class SettingsMenuManager {
         rootLayout.setPadding((int) (16 * d), (int) (18 * d), (int) (16 * d), (int) (16 * d));
 
         TextView tvTitle = new TextView(main);
-        tvTitle.setText("🎵 " + t("Last.fm Logout"));
+        tvTitle.setText("🎵 " + t("Maloja Logout"));
         tvTitle.setTextColor(ThemeManager.getTextColorPrimary());
         tvTitle.setTextSize(18f);
         tvTitle.setTypeface(ThemeManager.getCustomFont(), Typeface.BOLD);
@@ -558,7 +558,7 @@ public class SettingsMenuManager {
         rootLayout.addView(tvTitle);
 
         TextView tvMsg = new TextView(main);
-        tvMsg.setText(t("Are you sure you want to log out from Last.fm?"));
+        tvMsg.setText(t("Are you sure you want to log out from Maloja?"));
         tvMsg.setTextColor(ThemeManager.getTextColorSecondary());
         tvMsg.setTextSize(14f);
         tvMsg.setGravity(Gravity.CENTER);

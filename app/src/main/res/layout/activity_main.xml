@@ -238,7 +238,7 @@
                     android:id="@+id/tv_player_lastfm_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="last.fm"
+                    android:text="maloja"
                     android:textColor="#E31B23"
                     android:textSize="13sp"
                     android:textStyle="bold"

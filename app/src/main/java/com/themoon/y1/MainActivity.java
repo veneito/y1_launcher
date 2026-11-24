@@ -2746,13 +2746,13 @@ public class MainActivity extends Activity {
             if ("y1".equals(data.getScheme()) && "lastfm-callback".equals(data.getHost())) {
                 String token = data.getQueryParameter("token");
                 if (token != null && !token.trim().isEmpty()) {
-                    Toast.makeText(this, t("Authenticating with Last.fm..."), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, t("Authenticating with Maloja..."), Toast.LENGTH_SHORT).show();
                     com.themoon.y1.managers.LastFmManager.getInstance(this).exchangeTokenWithBackend(token.trim(), new com.themoon.y1.managers.LastFmManager.LoginCallback() {
                         @Override
                         public void onSuccess() {
                             runOnUiThread(new Runnable() {
                                 public void run() {
-                                    Toast.makeText(MainActivity.this, t("Last.fm logged in!"), Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(MainActivity.this, t("Maloja logged in!"), Toast.LENGTH_SHORT).show();
                                     updatePlayerStatusIndicators();
                                     if (currentScreenState == STATE_SETTINGS && com.themoon.y1.managers.SettingsMenuManager.getInstance(MainActivity.this) != null) {
                                         com.themoon.y1.managers.SettingsMenuManager.getInstance(MainActivity.this).buildNetworkSettingsUI();
@@ -5238,9 +5238,9 @@ public class MainActivity extends Activity {
             if (currentKeyboardMode == 1) {
                 tvKeyboardInput.setText(typedPassword.length() == 0 ? t("Enter keyword...") : typedPassword);
             } else if (currentKeyboardMode == 2) {
-                tvKeyboardInput.setText(typedPassword.length() == 0 ? t("Last.fm Username...") : typedPassword);
+                tvKeyboardInput.setText(typedPassword.length() == 0 ? t("Maloja Username...") : typedPassword);
             } else if (currentKeyboardMode == 3) {
-                tvKeyboardInput.setText(typedPassword.length() == 0 ? t("Last.fm Password...") : typedPassword.replaceAll(".", "*"));
+                tvKeyboardInput.setText(typedPassword.length() == 0 ? t("Maloja API Key...") : typedPassword.replaceAll(".", "*"));
             } else {
                 tvKeyboardInput.setText(typedPassword.length() == 0 ? t("Enter Password...") : typedPassword);
             }
@@ -5290,7 +5290,7 @@ public class MainActivity extends Activity {
                     public void onSuccess() {
                         runOnUiThread(new Runnable() {
                             public void run() {
-                                Toast.makeText(MainActivity.this, t("Last.fm logged in!"), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(MainActivity.this, t("Maloja logged in!"), Toast.LENGTH_SHORT).show();
                                 currentKeyboardMode = 0;
                                 changeScreen(STATE_SETTINGS);
                             }
@@ -11223,7 +11223,7 @@ public class MainActivity extends Activity {
             if (tvPlayerLastFmStatus != null) {
                 com.themoon.y1.managers.LastFmManager lfm = com.themoon.y1.managers.LastFmManager.getInstance(this);
                 if (lfm.isEnabled() && !isCustomThemeVis) {
-                    tvPlayerLastFmStatus.setText("last.fm");
+                    tvPlayerLastFmStatus.setText("maloja");
                     tvPlayerLastFmStatus.setTextColor(0xFFE31B23);
                     tvPlayerLastFmStatus.setVisibility(View.VISIBLE);
                 } else {

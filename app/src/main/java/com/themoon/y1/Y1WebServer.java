@@ -153,10 +153,10 @@ public class Y1WebServer extends Thread {
 
                             // 🚀 [추가] Last.fm Login Box
                             "<div class='box'>" +
-                            "<h3 style='margin-top:0; color:#B39DDB; font-size:16px;'>🎵 Last.fm Connect</h3>" +
+                            "<h3 style='margin-top:0; color:#B39DDB; font-size:16px;'>🎵 Maloja Connect</h3>" +
                             "<div style='display:flex; gap:8px;'>" +
                             "<input type='text' id='lfmUser' placeholder='Username' style='flex:1;'>" +
-                            "<input type='password' id='lfmPass' placeholder='Password' style='flex:1; background:#2A2A35; color:#E0E0E0; border-radius:12px; padding:12px; font-size:14px; border:none; outline:none;'>" +
+                            "<input type='password' id='lfmPass' placeholder='Maloja API key' style='flex:1; background:#2A2A35; color:#E0E0E0; border-radius:12px; padding:12px; font-size:14px; border:none; outline:none;'>" +
                             "<button class='action' onclick='loginLastFm()'>Login</button>" +
                             "</div>" +
                             "</div>" +
@@ -265,7 +265,7 @@ public class Y1WebServer extends Thread {
                             "  var p = document.getElementById('lfmPass').value;" +
                             "  if(!u || !p) { alert('Please enter both username and password.'); return; }" +
                             "  fetch('/api/lastfm_login?user=' + encodeURIComponent(u) + '&pass=' + encodeURIComponent(p), {method:'POST'}).then(r=>r.text()).then(res=>{" +
-                            "    if(res === 'OK') { alert('Last.fm Logged In Successfully!'); document.getElementById('lfmUser').value=''; document.getElementById('lfmPass').value=''; }" +
+                            "    if(res === 'OK') { alert('Maloja Logged In Successfully!'); document.getElementById('lfmUser').value=''; document.getElementById('lfmPass').value=''; }" +
                             "    else alert('Login Failed: ' + res);" +
                             "  });" +
                             "}" +
