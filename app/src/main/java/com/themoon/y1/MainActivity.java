@@ -4319,7 +4319,7 @@ public class MainActivity extends Activity {
                 if (containerAlbum.getParent() instanceof ViewGroup) ((ViewGroup) containerAlbum.getParent()).removeView(containerAlbum);
                 playerContentLayout.addView(containerAlbum, 0);
             }
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int)(190*d), (int)(190*d));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int)(170*d), (int)(170*d));
             lp.bottomMargin = (int)(8*d);
             lp.gravity = Gravity.CENTER_HORIZONTAL;
             containerAlbum.setLayoutParams(lp);
@@ -4351,7 +4351,7 @@ public class MainActivity extends Activity {
             }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.topMargin = (int)(2*d);
-            lp.bottomMargin = (int)(6*d);
+            lp.bottomMargin = 0; // fork: album line below
             lp.gravity = Gravity.CENTER;
             tvArtist.setLayoutParams(lp);
             if (tvArtist instanceof TextView) {
@@ -4368,14 +4368,14 @@ public class MainActivity extends Activity {
                 playerContentLayout.addView(tvAlbum, idx != -1 ? idx + 1 : 3);
             }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.bottomMargin = (int)(6*d);
+            lp.bottomMargin = (int)(2*d);
             lp.gravity = Gravity.CENTER;
             tvAlbum.setLayoutParams(lp);
             if (tvAlbum instanceof TextView) {
                 ((TextView) tvAlbum).setTextSize(14);
                 ((TextView) tvAlbum).setGravity(Gravity.CENTER);
             }
-            tvAlbum.setVisibility(View.GONE);
+            tvAlbum.setVisibility(View.VISIBLE); // fork: show the album
         }
 
         // 4. containerProgress 복구
