@@ -2317,7 +2317,7 @@ public class MainActivity extends Activity {
 
         // 🚀 [자기 아이디어 적용!] 더미 박스 장착! (앨범 이미지가 숨겨져도 상자 크기를 190dp로 강제 유지!)
         View dummyBox = new View(this);
-        dummyBox.setMinimumHeight((int) (190 * densityVis));
+        dummyBox.setMinimumHeight((int) (170 * densityVis));
         albumContainer.addView(dummyBox, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -4059,8 +4059,8 @@ public class MainActivity extends Activity {
                 if (currentParent != null && currentParent != rootPlayerMode) {
                     if (targetView == containerAlbum && currentParent == findViewById(R.id.player_content_layout)) {
                         View placeholder = new View(this);
-                        placeholder.setMinimumHeight((int)(190 * d));
-                        LinearLayout.LayoutParams phLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(190 * d));
+                        placeholder.setMinimumHeight((int)(170 * d));
+                        LinearLayout.LayoutParams phLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(170 * d));
                         phLp.bottomMargin = (int)(8 * d);
                         int idx = currentParent.indexOfChild(targetView);
                         currentParent.removeView(targetView);
