@@ -620,6 +620,7 @@ public class MainActivity extends Activity {
     private final String[] VIBE_STRENGTH_NAMES = { "Weak", "Normal (Vibe)", "Strong" };
     // 💡 핵심: 10ms(아주 짧게 튕김), 25ms(일반적인 휠), 50ms(묵직하게 울림)
     private final int[] VIBE_DURATIONS = { 10, 25, 50 };
+    private byte[] widgetAlbumArtShownBytes; // art currently decoded into the home album widget
     private Handler clockHandler = new Handler();
     private Runnable clockTask = new Runnable() {
         @Override
@@ -3443,15 +3444,21 @@ public class MainActivity extends Activity {
                 // =========================================================
 
                 if (lastAlbumArtBytes != null) {
-                    try {
-                        BitmapFactory.Options opts = new BitmapFactory.Options();
-                        opts.inSampleSize = 2;
-                        Bitmap bmp = BitmapFactory.decodeByteArray(lastAlbumArtBytes,
-                                0, lastAlbumArtBytes.length, opts);
-                        ivWidgetAlbum.setImageBitmap(bmp);
-                    } catch (Exception e) {
+                    // Decode only when the art changed: this runs every second, and a fresh ~1 MB bitmap
+                    // each time forced a blocking GC (30-50 ms screen freeze) about once a second.
+                    if (lastAlbumArtBytes != widgetAlbumArtShownBytes) {
+                        try {
+                            BitmapFactory.Options opts = new BitmapFactory.Options();
+                            opts.inSampleSize = 2;
+                            Bitmap bmp = BitmapFactory.decodeByteArray(lastAlbumArtBytes,
+                                    0, lastAlbumArtBytes.length, opts);
+                            ivWidgetAlbum.setImageBitmap(bmp);
+                            widgetAlbumArtShownBytes = lastAlbumArtBytes;
+                        } catch (Exception e) {
+                        }
                     }
                 } else {
+                    widgetAlbumArtShownBytes = null;
                     ivWidgetAlbum.setImageBitmap(
                             ThemeManager.getCustomIcon("icon_default_album.png", this, R.drawable.default_album));
                 }
@@ -10029,6 +10036,7 @@ public class MainActivity extends Activity {
                 albumContainer.setPadding(p, p, p, p);
 
                 ivWidgetAlbum = new ImageView(this);
+                widgetAlbumArtShownBytes = null; // new view: next refresh must decode
                 ivWidgetAlbum.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 int pSubtract = el.padding * 2;
                 int imgSize = isHorizontal ? (int) ((el.height - pSubtract) * density)
@@ -15368,6 +15376,7 @@ public class MainActivity extends Activity {
                     if (tvWidgetAlbumArtist != null && tvPlayerArtist != null)
                         tvWidgetAlbumArtist.setText(tvPlayerArtist.getText());
                     if (ivWidgetAlbum != null) {
+                        widgetAlbumArtShownBytes = null; // image set here; let refreshWidgets re-sync
                         if (lastAlbumArtBytes != null && lastAlbumArtBytes.length > 0) {
                             try {
                                 BitmapFactory.Options opts = new BitmapFactory.Options();
