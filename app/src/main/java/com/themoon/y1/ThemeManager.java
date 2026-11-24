@@ -128,7 +128,7 @@ public class ThemeManager {
 
     public static int getStatusBarBackgroundColor() {
         if (availableThemes.isEmpty()) return 0x66000000;
-        return availableThemes.get(currentThemeIndex).statusBarBg;
+        return getCurrentTheme().statusBarBg;
     }
 
     public static void loadThemesFromStorage(File themeFolder) {
@@ -384,8 +384,13 @@ public class ThemeManager {
 
     public static void setThemeIndex(int index) { if (index >= 0 && index < availableThemes.size()) currentThemeIndex = index; else currentThemeIndex = 0; }
     public static int getCurrentThemeIndex() { return currentThemeIndex; }
-    public static ThemeData getCurrentTheme() { return availableThemes.get(currentThemeIndex); }
-    public static android.graphics.Typeface getCustomFont() { if (availableThemes.isEmpty()) return android.graphics.Typeface.DEFAULT; return availableThemes.get(currentThemeIndex).customFont; }
+    // The list can be reloaded (e.g. storage remounting at boot) with fewer themes than the saved index;
+    // fall back to the default theme instead of crashing the launcher (which also lost the user's settings view).
+    public static ThemeData getCurrentTheme() {
+        if (currentThemeIndex < 0 || currentThemeIndex >= availableThemes.size()) currentThemeIndex = 0;
+        return availableThemes.get(currentThemeIndex);
+    }
+    public static android.graphics.Typeface getCustomFont() { if (availableThemes.isEmpty()) return android.graphics.Typeface.DEFAULT; return getCurrentTheme().customFont; }
     public static int getTextColorPrimary() { return getCurrentTheme().textPrimary; }
     public static int getTextColorSecondary() { return getCurrentTheme().textSecondary; }
     public static int getOverlayBackgroundColor() { return getCurrentTheme().bgOverlay; }
