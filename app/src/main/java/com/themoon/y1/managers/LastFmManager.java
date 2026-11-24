@@ -26,7 +26,9 @@ public class LastFmManager {
     // 💡 공개 API Key (웹 브라우저 로그인 창 띄우기용 - 공개 식별자이므로 안전합니다)
     private static final String API_KEY = "2165415dd222229ee5bcfb7f93145fe1";
     // 🚀 모든 통신 및 보안 서명(API_SECRET) 처리를 전담하는 Vercel 프록시 URL
-    private static final String PROXY_URL = "https://lastfm-proxy-livid.vercel.app/api";
+    // Fork: scrobble to the self-hosted Maloja (its Last.fm-compatible API) instead of Last.fm.
+    // Log in with any username and a Maloja API key as the password.
+    private static final String PROXY_URL = "https://maloja.veneito.dev/apis/audioscrobbler/2.0/";
     private static final String CALLBACK_URL = "y1://lastfm-callback";
 
     private static LastFmManager instance;
@@ -188,11 +190,12 @@ public class LastFmManager {
         });
     }
 
-    public void login(final String user, String password, final LoginCallback callback) {
+    public void login(final String user, final String password, final LoginCallback callback) {
         FormBody formBody = new FormBody.Builder()
                 .add("method", "auth.getMobileSession")
                 .add("username", user)
                 .add("password", password)
+                .add("format", "json")
                 .build();
 
         Request request = new Request.Builder()
@@ -215,12 +218,13 @@ public class LastFmManager {
                         if (json.has("session")) {
                             JSONObject session = json.getJSONObject("session");
                             sessionKey = session.getString("key");
-                            username = session.getString("name");
+                            username = session.optString("name", user); // Maloja's JSON reply has no name
                             isScrobblingEnabled = true;
 
                             prefs.edit()
                                     .putString("session_key", sessionKey)
                                     .putString("username", username)
+                                    .putString("maloja_key", password) // to re-login: Maloja forgets sessions on restart
                                     .apply();
                             
                             if (callback != null) callback.onSuccess();
@@ -237,6 +241,29 @@ public class LastFmManager {
                 }
             }
         });
+    }
+
+    // Blocking re-login with the saved Maloja key; call from a background thread only.
+    private boolean relogin() {
+        String key = prefs.getString("maloja_key", null);
+        if (key == null) return false;
+        try {
+            Response r = httpClient.newCall(new Request.Builder().url(PROXY_URL).post(new FormBody.Builder()
+                    .add("method", "auth.getMobileSession")
+                    .add("username", username != null ? username : "y1")
+                    .add("password", key)
+                    .add("format", "json")
+                    .build()).build()).execute();
+            if (!r.isSuccessful() || r.body() == null) { r.close(); return false; }
+            JSONObject json = new JSONObject(r.body().string());
+            if (!json.has("session")) return false;
+            sessionKey = json.getJSONObject("session").getString("key");
+            prefs.edit().putString("session_key", sessionKey).apply();
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Maloja re-login failed: " + e.getMessage());
+            return false;
+        }
     }
 
     public void logout() {
@@ -294,35 +321,37 @@ public class LastFmManager {
             @Override
             public void run() {
                 try {
+                    boolean reloggedIn = false;
                     while (true) {
-                        List<ScrobbleItem> batch = dbHelper.getBatch(50);
+                        // One track per request: Maloja's batched track[i] path is broken (wrong scrobble() call)
+                        List<ScrobbleItem> batch = dbHelper.getBatch(1);
                         if (batch.isEmpty()) break;
-
-                        FormBody.Builder formBuilder = new FormBody.Builder()
-                                .add("method", "track.scrobble")
-                                .add("sk", sessionKey);
-
-                        for (int i = 0; i < batch.size(); i++) {
-                            ScrobbleItem item = batch.get(i);
-                            formBuilder.add("track[" + i + "]", item.track);
-                            formBuilder.add("artist[" + i + "]", item.artist);
-                            formBuilder.add("timestamp[" + i + "]", String.valueOf(item.timestamp));
-                        }
+                        ScrobbleItem item = batch.get(0);
 
                         Request request = new Request.Builder()
                                 .url(PROXY_URL)
-                                .post(formBuilder.build())
+                                .post(new FormBody.Builder()
+                                        .add("method", "track.scrobble")
+                                        .add("sk", sessionKey)
+                                        .add("track", item.track)
+                                        .add("artist", item.artist)
+                                        .add("timestamp", String.valueOf(item.timestamp))
+                                        .build())
                                 .build();
 
                         Response response = httpClient.newCall(request).execute();
+                        if (response.code() == 403 && !reloggedIn) { // Maloja restarted and dropped the session
+                            response.close();
+                            reloggedIn = true;
+                            if (relogin()) continue;
+                            break;
+                        }
                         if (response.isSuccessful() && response.body() != null) {
                             String bodyStr = response.body().string();
                             JSONObject json = new JSONObject(bodyStr);
                             if (json.has("scrobbles")) {
-                                for (ScrobbleItem item : batch) {
-                                    dbHelper.removeScrobble(item.id);
-                                }
-                                Log.d(TAG, "Scrobbled " + batch.size() + " tracks successfully. Remaining in queue: " + dbHelper.getBatch(1).size());
+                                dbHelper.removeScrobble(item.id);
+                                Log.d(TAG, "Scrobbled 1 track successfully. Remaining in queue: " + dbHelper.getBatch(1).size());
                             } else if (json.has("error")) {
                                 Log.e(TAG, "Scrobble error: " + json.getString("message"));
                                 break; // Last.fm 에러 응답 시 루프 중단
