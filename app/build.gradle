@@ -32,6 +32,14 @@ android {
         }
     }
     signingConfigs {
+        // Fixed debug key (committed on purpose, public test key): every CI build is signed the same,
+        // so an APK pushed over ADB keeps the app's data instead of Android wiping it on a key change.
+        debug {
+            storeFile file("debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
         release {
             v1SigningEnabled true
             v2SigningEnabled true
