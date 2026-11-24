@@ -1171,6 +1171,12 @@ public class MainActivity extends Activity {
                 } else {
                     // 🚀 [수정] 노란색(0xFFFFBB00) 제거 -> 테마 기본색 적용!
                     ivStatusWifi.setColorFilter(ThemeManager.getTextColorPrimary());
+                    // Fork: Wi-Fi gone (e.g. left home): stop the web server so its screen/CPU/Wi-Fi locks
+                    // don't keep the Y1 awake; suspect for the black-screen sleep hang seen 2026-11-24
+                    if (isServerRunning && networkInfo != null && networkInfo.getState() == NetworkInfo.State.DISCONNECTED) {
+                        toggleWebServer();
+                        updateWebServerUI();
+                    }
                 }
             } else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
@@ -4658,7 +4664,8 @@ public class MainActivity extends Activity {
             ThemeManager.ThemeData currentTheme = ThemeManager.getCurrentTheme();
 
             // 🚀 1. 테마 기본 배경 고정 모드 ("THEME_DEFAULT")
-            if ("THEME_DEFAULT".equals(savedBgPath)) {
+            // Fork: also when no background was ever chosen, so a theme's own background beats the album blur
+            if (savedBgPath == null || "THEME_DEFAULT".equals(savedBgPath)) {
                 Bitmap themeBg = null;
 
                 // 1순위: config.json 에서 "bg_image"로 지정한 파일

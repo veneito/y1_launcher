@@ -248,32 +248,6 @@ public class LastFmManager {
         dbHelper.clearQueue();
     }
 
-    public void updateNowPlaying(String track, String artist) {
-        if (!isEnabled()) return;
-        
-        FormBody formBody = new FormBody.Builder()
-                .add("method", "track.updateNowPlaying")
-                .add("track", track)
-                .add("artist", artist)
-                .add("sk", sessionKey)
-                .build();
-
-        Request request = new Request.Builder()
-                .url(PROXY_URL)
-                .post(formBody)
-                .build();
-
-        // Fire and forget
-        httpClient.newCall(request).enqueue(new Callback() {
-            @Override public void onFailure(Call call, IOException e) {
-                Log.e(TAG, "updateNowPlaying failed: " + e.getMessage());
-            }
-            @Override public void onResponse(Call call, Response response) throws IOException {
-                if (response.body() != null) response.body().close();
-            }
-        });
-    }
-
     // Queues a scrobble in SQLite
     public void scrobble(String track, String artist, String album, long timestampUnix) {
         if (!isEnabled()) return;

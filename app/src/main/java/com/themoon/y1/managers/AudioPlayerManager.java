@@ -1048,11 +1048,6 @@ public class AudioPlayerManager {
             exoPlayer.prepare(); // 💡 장전 완료!
             isCurrentTrackScrobbled = false;
             
-            if (LastFmManager.getInstance(main).isEnabled()) {
-                String a = main.tvPlayerArtist != null ? main.tvPlayerArtist.getText().toString() : track.getName();
-                String tr = main.tvPlayerTitle != null ? main.tvPlayerTitle.getText().toString() : track.getName();
-                LastFmManager.getInstance(main).updateNowPlaying(tr, a);
-            }
 
             boolean isShuffle = main.prefs.getBoolean("shuffle", false);
             exoPlayer.setShuffleModeEnabled(isShuffle);
