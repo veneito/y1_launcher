@@ -116,7 +116,8 @@ public final class ExternalSdMountMonitor {
         if (!hasSecondarySlot())
             return false;
         String fuse = readProp("init.svc.fuse_sdcard1");
-        if (!"running".equals(fuse))
+        // Fork: no fuse_sdcard1 service at all (Android 4.2 Y1): a plain mount is ready, else self-heal looped forever
+        if (fuse != null && !fuse.isEmpty() && !"running".equals(fuse))
             return false;
         return mountsContain(SECONDARY) || mountsContain("/mnt/media_rw/sdcard1");
     }
@@ -194,16 +195,7 @@ public final class ExternalSdMountMonitor {
             runSuTimed("vdc volume unmount sdcard0 force 2>/dev/null");
 
             // 1-B: 파일시스템 자동 복구 (더티 비트 해제 및 고아 클러스터 수리)
-            runSuTimed(
-                    "dosfsck -a -w /dev/block/mmcblk0p1 2>/dev/null; "
-                    + "fsck_msdos -y /dev/block/mmcblk0p1 2>/dev/null; "
-                    + "fsck.vfat -a -w /dev/block/mmcblk0p1 2>/dev/null; "
-                    + "fsck.exfat -y /dev/block/mmcblk0p1 2>/dev/null; "
-                    + "dosfsck -a -w /dev/block/mmcblk1p1 2>/dev/null; "
-                    + "fsck_msdos -y /dev/block/mmcblk1p1 2>/dev/null; "
-                    + "fsck.vfat -a -w /dev/block/mmcblk1p1 2>/dev/null; "
-                    + "fsck.exfat -y /dev/block/mmcblk1p1 2>/dev/null"
-            );
+            runSuTimed(fsckUnmounted("mmcblk0p1") + fsckUnmounted("mmcblk1p1"));
 
             // 1-C: vold에 마운트 요청
             runSuTimed("vdc volume mount sdcard0 2>/dev/null");
@@ -233,12 +225,7 @@ public final class ExternalSdMountMonitor {
             );
 
             // 2-B: 외장 SD카드 파일시스템 복구
-            runSuTimed(
-                    "dosfsck -a -w /dev/block/mmcblk1p1 2>/dev/null; "
-                    + "fsck_msdos -y /dev/block/mmcblk1p1 2>/dev/null; "
-                    + "fsck.vfat -a -w /dev/block/mmcblk1p1 2>/dev/null; "
-                    + "fsck.exfat -y /dev/block/mmcblk1p1 2>/dev/null"
-            );
+            runSuTimed(fsckUnmounted("mmcblk1p1"));
 
             // 2-C: vold 마운트 및 FUSE 재시작
             runSuTimed(
@@ -250,6 +237,23 @@ public final class ExternalSdMountMonitor {
         }
 
         return isPrimaryReady() || isSecondaryReady();
+    }
+
+    // Fork: repair commands for a block device, or nothing if it is mounted anywhere. Mounts show either
+    // /dev/block/<name> or vold's /dev/block/vold/<major:minor>, so check both.
+    private static String fsckUnmounted(String name) {
+        try {
+            BufferedReader r = new BufferedReader(new FileReader("/sys/class/block/" + name + "/dev"));
+            String majMin = r.readLine();
+            r.close();
+            if (majMin == null || deviceMounted("/dev/block/" + name) || deviceMounted("/dev/block/vold/" + majMin.trim()))
+                return "";
+        } catch (Exception e) {
+            return ""; // can't tell (or no such device): don't risk repairing a disk in use
+        }
+        String d = "/dev/block/" + name;
+        return "dosfsck -a -w " + d + " 2>/dev/null; fsck_msdos -y " + d + " 2>/dev/null; "
+                + "fsck.vfat -a -w " + d + " 2>/dev/null; fsck.exfat -y " + d + " 2>/dev/null; ";
     }
 
     private void notifyReady() {
@@ -386,6 +390,28 @@ public final class ExternalSdMountMonitor {
                     return true;
             }
         } catch (Exception ignored) {
+        } finally {
+            try {
+                if (br != null)
+                    br.close();
+            } catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    // Fork: is this block device mounted? (field 1 of /proc/mounts; mountsContain() checks mount points only)
+    private static boolean deviceMounted(String dev) {
+        BufferedReader br = null;
+        try {
+            br = new BufferedReader(new FileReader("/proc/mounts"));
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.split(" ")[0].equals(dev))
+                    return true;
+            }
+        } catch (Exception e) {
+            return true; // unknown: assume in use
         } finally {
             try {
                 if (br != null)
