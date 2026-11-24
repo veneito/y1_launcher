@@ -42,10 +42,25 @@ public class AudioVisualizerView extends View {
         invalidate();
     }
 
+    // Keep the album's hue but force it bright: dark covers made the bars/wave vanish on dark themes.
+    private static int visible(int color) {
+        float[] hsv = new float[3];
+        android.graphics.Color.colorToHSV(color, hsv);
+        hsv[1] = Math.min(hsv[1], 0.7f);  // a little less saturated so it reads as light, not neon
+        hsv[2] = Math.max(hsv[2], 0.95f); // always near full brightness
+        return android.graphics.Color.HSVToColor(hsv);
+    }
+
+    private int lastColorIn, lastColorOut;
+
     public void updateVisualizer(byte[] fft, int color) {
         this.fftData = fft;
-        paint.setColor(color);
-        glowPaint.setColor(color);
+        if (color != lastColorIn) { // FFT arrives ~10x/s; only recompute when the album colour changes
+            lastColorIn = color;
+            lastColorOut = visible(color);
+        }
+        paint.setColor(lastColorOut);
+        glowPaint.setColor(lastColorOut);
         lastDataMs = android.os.SystemClock.uptimeMillis();
         if (!animating && getVisibility() == View.VISIBLE) {
             animating = true;
