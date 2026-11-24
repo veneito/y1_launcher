@@ -384,7 +384,7 @@ public class MainActivity extends Activity {
     public long lastTrackChangeTime = 0; // 🚀 기기의 중복 키 신호를 막아줄 방어막 변수
     // 💡 [추가] 오디오 스펙트럼 관련 변수들
     private android.media.audiofx.Visualizer audioVisualizer;
-    private AudioVisualizerView visualizerView;
+    public AudioVisualizerView visualizerView;
     // 🚀 [신규 추가] LRC 가사 파서 및 UI 변수
     private ScrollView lyricScrollView;
     private TextView tvLyrics;
@@ -2325,6 +2325,7 @@ public class MainActivity extends Activity {
 
         visualizerView = new AudioVisualizerView(this);
         visualizerView.setVisibility(View.GONE);
+        visualizerView.setStyle(prefs.getInt("visualizer_style", AudioVisualizerView.STYLE_BARS));
 
         lyricScrollView = new ScrollView(this);
         lyricScrollView.setVisibility(View.GONE);

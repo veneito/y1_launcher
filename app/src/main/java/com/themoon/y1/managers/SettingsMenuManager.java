@@ -149,6 +149,21 @@ public class SettingsMenuManager {
         });
         main.containerSettingsItems.addView(btnShuffle);
 
+        // fork: visualizer look, Bars (classic, with peak caps) or Wave (XMB-style glowing line)
+        final String[] visNames = {"Bars", "Wave"};
+        final LinearLayout btnVisStyle = createSettingRow(t("Visualizer"), t(visNames[main.prefs.getInt("visualizer_style", 0) == 1 ? 1 : 0]));
+        btnVisStyle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                clickFeedback();
+                int next = main.prefs.getInt("visualizer_style", 0) == 1 ? 0 : 1;
+                main.prefs.edit().putInt("visualizer_style", next).apply();
+                if (main.visualizerView != null) main.visualizerView.setStyle(next);
+                ((TextView) btnVisStyle.getChildAt(1)).setText(t(visNames[next]));
+            }
+        });
+        main.containerSettingsItems.addView(btnVisStyle);
+
         final LinearLayout btnRepeat = createSettingRow(t("Repeat"), t(main.getRepeatModeText(main.repeatMode)));
         btnRepeat.setOnClickListener(new View.OnClickListener() {
             @Override
