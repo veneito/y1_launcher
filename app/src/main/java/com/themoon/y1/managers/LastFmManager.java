@@ -46,7 +46,7 @@ public class LastFmManager {
     private LastFmManager(Context context) {
         this.context = context.getApplicationContext();
         this.prefs = this.context.getSharedPreferences("lastfm_prefs", Context.MODE_PRIVATE);
-        this.httpClient = getUnsafeOkHttpClient();
+        this.httpClient = getMalojaHttpClient(this.context);
         this.dbHelper = new ScrobbleDatabaseHelper(this.context);
         this.sessionKey = prefs.getString("session_key", null);
         this.username = prefs.getString("username", null);
@@ -54,32 +54,27 @@ public class LastFmManager {
         this.isScrobblingEnabled = (this.sessionKey != null);
     }
 
-    private static OkHttpClient getUnsafeOkHttpClient() {
+    // Android 4.2's own TLS can't talk to Cloudflare, and its CA store predates Let's Encrypt's
+    // ISRG roots. So: bundled Conscrypt for TLS 1.2, and only the ISRG roots in assets/isrg_roots.pem
+    // as trust anchors (real certificate + hostname checks; this carries the Maloja API key).
+    private static OkHttpClient getMalojaHttpClient(Context context) {
         try {
-            final javax.net.ssl.TrustManager[] trustAllCerts = new javax.net.ssl.TrustManager[]{
-                    new javax.net.ssl.X509TrustManager() {
-                        @Override
-                        public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
-                        @Override
-                        public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {}
-                        @Override
-                        public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                            return new java.security.cert.X509Certificate[]{};
-                        }
-                    }
-            };
-            final javax.net.ssl.SSLContext sslContext = javax.net.ssl.SSLContext.getInstance("TLS");
-            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
-            OkHttpClient.Builder builder = new OkHttpClient.Builder();
-            builder.sslSocketFactory(sslContext.getSocketFactory(), (javax.net.ssl.X509TrustManager)trustAllCerts[0]);
-            builder.hostnameVerifier(new javax.net.ssl.HostnameVerifier() {
-                @Override
-                public boolean verify(String hostname, javax.net.ssl.SSLSession session) {
-                    return true;
-                }
-            });
-            return builder.build();
+            java.security.KeyStore ks = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType());
+            ks.load(null, null);
+            java.io.InputStream in = context.getAssets().open("isrg_roots.pem");
+            int i = 0;
+            for (java.security.cert.Certificate c : java.security.cert.CertificateFactory.getInstance("X.509").generateCertificates(in)) {
+                ks.setCertificateEntry("isrg" + i++, c);
+            }
+            in.close();
+            javax.net.ssl.TrustManagerFactory tmf = javax.net.ssl.TrustManagerFactory.getInstance(javax.net.ssl.TrustManagerFactory.getDefaultAlgorithm());
+            tmf.init(ks);
+            javax.net.ssl.X509TrustManager tm = (javax.net.ssl.X509TrustManager) tmf.getTrustManagers()[0];
+            javax.net.ssl.SSLContext ssl = javax.net.ssl.SSLContext.getInstance("TLS", org.conscrypt.Conscrypt.newProvider());
+            ssl.init(null, new javax.net.ssl.TrustManager[]{tm}, null);
+            return new OkHttpClient.Builder().sslSocketFactory(ssl.getSocketFactory(), tm).build();
         } catch (Exception e) {
+            Log.e(TAG, "Maloja TLS setup failed: " + e);
             return new OkHttpClient();
         }
     }
