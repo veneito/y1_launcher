@@ -10996,7 +10996,7 @@ public class MainActivity extends Activity {
             if (ivAlbumArt != null) ivAlbumArt.setVisibility(View.INVISIBLE);
             if (tvPlayerTitle != null) tvPlayerTitle.setVisibility(View.INVISIBLE);
             if (tvPlayerArtist != null) tvPlayerArtist.setVisibility(View.INVISIBLE);
-            if (tvPlayerAlbum != null) tvPlayerAlbum.setVisibility(View.VISIBLE); // fork: show the album (was kept GONE for the progress bar)
+            if (tvPlayerAlbum != null) tvPlayerAlbum.setVisibility(View.INVISIBLE); // fork: hidden with the title/artist in visualizer mode (keeps its space)
 
             boolean hasLyrics = (currentLyrics != null && !currentLyrics.isEmpty()) || (plainLyrics != null && !plainLyrics.isEmpty());
 
