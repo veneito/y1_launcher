@@ -1061,6 +1061,7 @@ public class MainActivity extends Activity {
                 // =======================================================
 
             } else if (Intent.ACTION_BATTERY_CHANGED.equals(action)) {
+                autoWebServer(intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0);
                 int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
                 int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
                 
@@ -1168,6 +1169,7 @@ public class MainActivity extends Activity {
                         startWifiScan();
                     // 🚀 [오프라인 스크로블 즉시 전송] 와이파이가 연결되는 즉시 대기열에 쌓인 곡들을 Last.fm으로 자동 방출!
                     com.themoon.y1.managers.LastFmManager.getInstance(MainActivity.this).processQueue();
+                    autoWebServer(lastPlugged);
                 } else {
                     // 🚀 [수정] 노란색(0xFFFFBB00) 제거 -> 테마 기본색 적용!
                     ivStatusWifi.setColorFilter(ThemeManager.getTextColorPrimary());
@@ -1176,6 +1178,7 @@ public class MainActivity extends Activity {
                     if (isServerRunning && networkInfo != null && networkInfo.getState() == NetworkInfo.State.DISCONNECTED) {
                         toggleWebServer();
                         updateWebServerUI();
+                        webServerAutoStarted = false;
                     }
                 }
             } else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
@@ -4571,6 +4574,41 @@ public class MainActivity extends Activity {
         }
     }
 
+    // Fork: hands-free sync. While plugged in (charging) on the home network, the web server runs so the
+    // server's sync-y1 timer can reach the Y1; unplugging stops it. "Home" = the network where the web
+    // server was last started by hand. Never on other networks: the web server has no password.
+    private boolean lastPlugged, webServerAutoStarted, webServerAutoStarting;
+
+    private String currentSsid() {
+        try {
+            android.net.wifi.WifiInfo info = ((WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE)).getConnectionInfo();
+            if (info == null || info.getNetworkId() == -1 || info.getSSID() == null) return null;
+            return info.getSSID().replace("\"", "");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void autoWebServer(boolean plugged) {
+        lastPlugged = plugged;
+        if (plugged && !isServerRunning) {
+            String home = prefs.getString("home_ssid", null);
+            if (home == null || !home.equals(currentSsid())) return;
+            webServerAutoStarting = true;
+            toggleWebServer();
+            webServerAutoStarting = false;
+            if (isServerRunning) {
+                webServerAutoStarted = true;
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); // let the screen sleep while it charges
+                updateWebServerUI();
+            }
+        } else if (!plugged && isServerRunning && webServerAutoStarted) {
+            toggleWebServer();
+            webServerAutoStarted = false;
+            updateWebServerUI();
+        }
+    }
+
     private void toggleWebServer() {
         if (isServerRunning) {
             if (webServer != null)
@@ -4608,6 +4646,8 @@ public class MainActivity extends Activity {
             webServer = new Y1WebServer(getApplicationContext(), rootFolder);
             webServer.start();
             isServerRunning = true;
+            String ssid = currentSsid();
+            if (ssid != null && !webServerAutoStarting) prefs.edit().putString("home_ssid", ssid).apply();
 
             // 🚀 [웹 서버 무중단 백그라운드 엔진 가동!]
             try {
