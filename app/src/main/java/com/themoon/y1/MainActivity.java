@@ -7250,6 +7250,19 @@ public class MainActivity extends Activity {
                     buildVirtualSongs();
                 });
                 containerBrowserItems.addView(btnAll);
+                View btnShuffleAll = createListButtonWithIcon("", t("Shuffle All"));
+                btnShuffleAll.setOnClickListener(v -> {
+                    clickFeedback();
+                    List<File> all = collectAudioFilesFromFileOrDir(rootFolder); // rootFolder is the Music dir
+                    if (all.isEmpty()) {
+                        Toast.makeText(MainActivity.this, t("No playable audio files found."), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    java.util.Collections.shuffle(all);
+                    com.themoon.y1.managers.AudioPlayerManager.getInstance().playTrackList(all, 0);
+                    changeScreen(STATE_PLAYER);
+                });
+                containerBrowserItems.addView(btnShuffleAll);
                 View btnM3uPlaylist = createListButtonWithIcon("\uE05F", t("Playlists"));
                 btnM3uPlaylist.setOnClickListener(v -> {
                     clickFeedback();

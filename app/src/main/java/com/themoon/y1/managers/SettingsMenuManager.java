@@ -137,6 +137,8 @@ public class SettingsMenuManager {
             public void onClick(View v) {
                 clickFeedback();
                 main.isShuffleMode = !main.isShuffleMode;
+                // apply to the playing queue too, like the player-menu toggle (it used to only save the pref)
+                if (AudioPlayerManager.getInstance() != null) AudioPlayerManager.getInstance().setShuffleMode(main.isShuffleMode);
                 TextView tvStatus = (TextView) btnShuffle.getChildAt(1);
                 tvStatus.setText(main.isShuffleMode ? t("ON") : t("OFF"));
                 main.updatePlayerStatusIndicators();
