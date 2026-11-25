@@ -360,7 +360,7 @@ public class Y1WebServer extends Thread {
                                     boolean isDir = f.isDirectory();
                                     if ((i == 0 && isDir) || (i == 1 && !isDir)) {
                                         if (json.length() > 1) json.append(",");
-                                        json.append("{\"name\":\"").append(f.getName().replace("\"", "\\\"")).append("\",\"isDir\":").append(isDir).append("}");
+                                        json.append("{\"name\":\"").append(f.getName().replace("\"", "\\\"")).append("\",\"isDir\":").append(isDir).append(",\"size\":").append(isDir ? 0 : f.length()).append("}");
                                     }
                                 }
                             }
@@ -500,20 +500,32 @@ public class Y1WebServer extends Thread {
                     File targetDir = dirStr.isEmpty() ? rootFolder : new File(rootFolder, dirStr);
                     if (!targetDir.exists()) targetDir.mkdirs();
                     File outFile = new File(targetDir, name);
+                    // Stage beside the target so a dropped connection never leaves a truncated song in place
+                    File partFile = new File(targetDir, name + ".part");
 
-                    FileOutputStream fos = new FileOutputStream(outFile);
+                    FileOutputStream fos = new FileOutputStream(partFile);
                     byte[] buffer = new byte[8192];
                     int bytesRead;
                     int totalRead = 0;
-                    while (totalRead < contentLength && (bytesRead = is.read(buffer, 0, Math.min(buffer.length, contentLength - totalRead))) != -1) {
-                        fos.write(buffer, 0, bytesRead);
-                        totalRead += bytesRead;
+                    try {
+                        while (totalRead < contentLength && (bytesRead = is.read(buffer, 0, Math.min(buffer.length, contentLength - totalRead))) != -1) {
+                            fos.write(buffer, 0, bytesRead);
+                            totalRead += bytesRead;
+                        }
+                        fos.flush();
+                        try { fos.getFD().sync(); } catch(Exception e){}
+                    } finally {
+                        fos.close();
+                        if (totalRead != contentLength) partFile.delete();
                     }
-                    fos.flush();
-                    try { fos.getFD().sync(); } catch(Exception e){}
-                    fos.close();
 
-                    os.write("HTTP/1.1 200 OK\r\n\r\nOK".getBytes("UTF-8"));
+                    // vfat rename won't overwrite, so the old copy goes only once the new one is complete
+                    if (totalRead == contentLength && (!outFile.exists() || outFile.delete()) && partFile.renameTo(outFile)) {
+                        os.write("HTTP/1.1 200 OK\r\n\r\nOK".getBytes("UTF-8"));
+                    } else {
+                        partFile.delete();
+                        os.write(("HTTP/1.1 400 Bad Request\r\n\r\nIncomplete upload: " + totalRead + " of " + contentLength + " bytes").getBytes("UTF-8"));
+                    }
                 }
 
                 // 7️⃣ [API] 🚀 텍스트 파일 저장 (코드 에디터에서 전송된 텍스트를 기기에 덮어쓰기)

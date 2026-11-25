@@ -12303,6 +12303,16 @@ public class MainActivity extends Activity {
                     c = containerSettingsItems.getChildAt(0);
                 }
             }
+            // Focus parked on a view outside the dynamic menu chain (e.g. the legacy Now Playing button after a
+            // system prompt like USB storage took focus) has no next/prev ids, so every wheel turn was swallowed.
+            if (c != null && currentScreenState == STATE_MENU && (keyCode == 21 || keyCode == 22)
+                    && c.getNextFocusDownId() == View.NO_ID && c.getNextFocusUpId() == View.NO_ID) {
+                View firstBtn = findViewById(10000);
+                if (firstBtn != null && firstBtn != c && firstBtn.getVisibility() == View.VISIBLE && firstBtn.requestFocus()) {
+                    clickFeedback();
+                    return true;
+                }
+            }
             if (c != null) {
                 if (keyCode == 21) { // 휠 위로 돌릴 때 (UP)
 
