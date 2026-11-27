@@ -159,10 +159,25 @@ public class SettingsMenuManager {
                 int next = main.prefs.getInt("visualizer_style", 0) == 1 ? 0 : 1;
                 main.prefs.edit().putInt("visualizer_style", next).apply();
                 if (main.visualizerView != null) main.visualizerView.setStyle(next);
+                main.setupInlineVisualizer(); // inline one follows the style
                 ((TextView) btnVisStyle.getChildAt(1)).setText(t(visNames[next]));
             }
         });
         main.containerSettingsItems.addView(btnVisStyle);
+
+        // fork: visualizer in the player's open space, next to the cover (needs a theme with a "visualizer" box)
+        final LinearLayout btnVisInline = createSettingRow(t("Visualizer in Player"), main.prefs.getBoolean("vis_in_player", false) ? t("ON") : t("OFF"));
+        btnVisInline.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                clickFeedback();
+                boolean on = !main.prefs.getBoolean("vis_in_player", false);
+                main.prefs.edit().putBoolean("vis_in_player", on).apply();
+                main.setupInlineVisualizer();
+                ((TextView) btnVisInline.getChildAt(1)).setText(on ? t("ON") : t("OFF"));
+            }
+        });
+        main.containerSettingsItems.addView(btnVisInline);
 
         final LinearLayout btnRepeat = createSettingRow(t("Repeat"), t(main.getRepeatModeText(main.repeatMode)));
         btnRepeat.setOnClickListener(new View.OnClickListener() {

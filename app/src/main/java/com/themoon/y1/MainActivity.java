@@ -390,6 +390,11 @@ public class MainActivity extends Activity {
     public long lastTrackChangeTime = 0; // 🚀 기기의 중복 키 신호를 막아줄 방어막 변수
     // 💡 [추가] 오디오 스펙트럼 관련 변수들
     private android.media.audiofx.Visualizer audioVisualizer;
+    // Fork: a second, always-on visualizer in the player's open space (theme player_ui "visualizer" box,
+    // Settings > Visualizer in Player). Own capture, so JJ's full-screen visualizer code stays untouched.
+    private AudioVisualizerView inlineVisView;
+    private android.media.audiofx.Visualizer inlineVisualizer;
+    private boolean inlineVisPlaced;
     public AudioVisualizerView visualizerView;
     // 🚀 [신규 추가] LRC 가사 파서 및 UI 변수
     private ScrollView lyricScrollView;
@@ -3982,7 +3987,21 @@ public class MainActivity extends Activity {
         if (ivShuffle != null && ivShuffle.getParent() != null) ((ViewGroup)ivShuffle.getParent()).removeView(ivShuffle);
         if (ivRepeat != null && ivRepeat.getParent() != null) ((ViewGroup)ivRepeat.getParent()).removeView(ivRepeat);
         if (containerQuality != null && containerQuality.getParent() != null) ((ViewGroup)containerQuality.getParent()).removeView(containerQuality);
+        inlineVisPlaced = false;
+        if (inlineVisView != null && inlineVisView.getParent() != null) ((ViewGroup) inlineVisView.getParent()).removeView(inlineVisView);
         for (ThemeManager.MenuElement el : theme.playerElements) {
+            if ("visualizer".equals(el.id)) { // fork: inline visualizer box
+                if (inlineVisView == null) inlineVisView = new AudioVisualizerView(this);
+                inlineVisView.setStyle(prefs.getInt("visualizer_style", AudioVisualizerView.STYLE_BARS));
+                FrameLayout.LayoutParams vlp = new FrameLayout.LayoutParams((int) (el.width * d), (int) (el.height * d));
+                vlp.gravity = Gravity.TOP | Gravity.LEFT;
+                vlp.leftMargin = (int) (el.x * d);
+                vlp.topMargin = (int) (el.y * d);
+                inlineVisView.setTag("player_box_visualizer");
+                rootPlayerMode.addView(inlineVisView, vlp);
+                inlineVisPlaced = true;
+                continue;
+            }
             View targetView = null;
 
             if ("background".equals(el.id)) {
@@ -11249,6 +11268,7 @@ public class MainActivity extends Activity {
 
             if (layoutVisProgress != null) layoutVisProgress.setVisibility(View.GONE);
         }
+        setupInlineVisualizer(); // fork: inline one steps aside for the full-screen visualizer
     }
     // 💡 [수정] 오디오 엔진에 빨대를 꽂아 주파수 데이터를 빼오는 함수
     public void setupVisualizer() {
@@ -11283,6 +11303,42 @@ public class MainActivity extends Activity {
             if (isVisualizerShowing) {
                 audioVisualizer.setEnabled(true);
             }
+        } catch (Exception e) {
+        }
+        setupInlineVisualizer();
+    }
+
+    // Fork: (re)start the inline visualizer; off when the setting is off, the theme has no box, or the
+    // full-screen visualizer is showing (no double visualizers).
+    public void setupInlineVisualizer() {
+        try {
+            if (inlineVisualizer != null) {
+                inlineVisualizer.setEnabled(false);
+                inlineVisualizer.release();
+                inlineVisualizer = null;
+            }
+            boolean on = inlineVisPlaced && inlineVisView != null && !isVisualizerShowing
+                    && prefs.getBoolean("vis_in_player", false);
+            if (inlineVisView != null) {
+                inlineVisView.setVisibility(on ? View.VISIBLE : View.GONE);
+                inlineVisView.setStyle(prefs.getInt("visualizer_style", AudioVisualizerView.STYLE_BARS));
+            }
+            if (!on) return;
+            inlineVisualizer = new android.media.audiofx.Visualizer(
+                    com.themoon.y1.managers.AudioPlayerManager.getInstance().getAudioSessionId());
+            inlineVisualizer.setCaptureSize(android.media.audiofx.Visualizer.getCaptureSizeRange()[1]);
+            inlineVisualizer.setDataCaptureListener(new android.media.audiofx.Visualizer.OnDataCaptureListener() {
+                @Override
+                public void onWaveFormDataCapture(android.media.audiofx.Visualizer v, byte[] w, int r) {
+                }
+
+                @Override
+                public void onFftDataCapture(android.media.audiofx.Visualizer v, byte[] fft, int r) {
+                    if (inlineVisView != null && inlineVisView.getVisibility() == View.VISIBLE)
+                        inlineVisView.updateVisualizer(fft, currentAlbumColor);
+                }
+            }, android.media.audiofx.Visualizer.getMaxCaptureRate() / 2, false, true);
+            inlineVisualizer.setEnabled(true);
         } catch (Exception e) {
         }
     }
