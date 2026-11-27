@@ -6069,6 +6069,11 @@ public class MainActivity extends Activity {
         return layout;
     }
 
+    // Fork: the A-Z popup only helps in long lists (song folders), not in menus like Settings or the library
+    private static boolean inLongList(View row) {
+        return row.getParent() instanceof ViewGroup && ((ViewGroup) row.getParent()).getChildCount() > 25;
+    }
+
     // Fork: "135 artists" style counts for the library rows, from the scanned library (no disk access)
     private String libCount(String what) {
         java.util.HashSet<String> set = new java.util.HashSet<>();
@@ -6196,7 +6201,7 @@ public class MainActivity extends Activity {
                     if (!tiled) tvIcon.setTextColor(ThemeManager.getListButtonFocusedTextColor());
                     tvText.setTextColor(ThemeManager.getListButtonFocusedTextColor());
                     tvText.setSelected(true); // 🚀 휠이 닿으면 텍스트가 흐르기 시작!
-                    showFastScrollLetter(tvText.getText().toString());
+                    if (inLongList(rowButton)) showFastScrollLetter(tvText.getText().toString()); // fork: not in short menus
                 } else {
                     // 🚀 [포커스 복구 버그 완전 해결] 포커스가 빠져나갈 때 흰색으로 리셋되지 않고, 처음에 칠했던 색상으로 정확히 복귀합니다!
                     rowButton.setBackground(normalBg);
@@ -6249,7 +6254,7 @@ public class MainActivity extends Activity {
                     btn.setBackground(focusedBg);
                     btn.setTextColor(ThemeManager.getListButtonFocusedTextColor());
                     btn.setSelected(true); // 🚀 텍스트 흐르기 시작!
-                    showFastScrollLetter(((Button) v).getText().toString());
+                    if (inLongList(v)) showFastScrollLetter(((Button) v).getText().toString()); // fork: not in short menus
                 } else {
                     // 🚀 일반 상태 둥근 배경 적용! (0 alloc)
                     btn.setBackground(normalBg);
@@ -15314,7 +15319,7 @@ public class MainActivity extends Activity {
                 if (hasFocus) {
                     if (v instanceof Button) {
                         ((Button) v).setTextColor(ThemeManager.getListButtonFocusedTextColor());
-                        showFastScrollLetter(((Button) v).getText().toString());
+                        if (inLongList(v)) showFastScrollLetter(((Button) v).getText().toString()); // fork: not in short menus
                     } else if (v instanceof LinearLayout) {
                         LinearLayout row = (LinearLayout) v;
                         if (row.getChildCount() > 1) {
