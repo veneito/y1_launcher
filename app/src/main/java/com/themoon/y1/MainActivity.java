@@ -11322,8 +11322,10 @@ public class MainActivity extends Activity {
             inlineVisView.setStyle(prefs.getInt("visualizer_style", AudioVisualizerView.STYLE_BARS));
         }
         try {
-            if (audioVisualizer != null && (on || isVisualizerShowing)) audioVisualizer.setEnabled(true);
-            else if (audioVisualizer != null) audioVisualizer.setEnabled(false);
+            // only on a real change: setEnabled is a blocking native call that froze the UI when it ran on
+            // every player refresh during a track change
+            boolean want = on || isVisualizerShowing;
+            if (audioVisualizer != null && audioVisualizer.getEnabled() != want) audioVisualizer.setEnabled(want);
         } catch (Exception e) {
         }
     }
