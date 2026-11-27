@@ -11,10 +11,10 @@ A=${ADB:-/f/Tools/platform-tools/adb.exe}
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-gh run download "$RUN" -R veneito/y1_launcher -n apk-maloja -D "$WORK"
+winpath() { command -v cygpath >/dev/null && cygpath -m "$1" || echo "$1"; }
+gh run download "$RUN" -R veneito/y1_launcher -n apk-maloja -D "$(winpath "$WORK")"  # gh.exe needs a Windows path
 mkdir "$WORK/libs" && unzip -q -j "$WORK/app-debug.apk" 'lib/armeabi-v7a/*.so' -d "$WORK/libs"
 
-winpath() { command -v cygpath >/dev/null && cygpath -m "$1" || echo "$1"; }
 put() { # verified copy: push to a temp file, check it, write into place, check again
   local src=$1 dst=$2 tmp=/data/local/tmp/y1put want
   want=$(md5sum < "$src" | cut -d' ' -f1)
