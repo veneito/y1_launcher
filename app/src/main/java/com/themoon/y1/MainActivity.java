@@ -4612,6 +4612,17 @@ public class MainActivity extends Activity {
         }
     }
 
+    // Fork: a home button's own "focused_bg" (e.g. #00000000 for an accent-bar-only look), else the theme-wide highlight
+    private static int focusedBgFor(ThemeManager.MenuElement el) {
+        if (el.focusedBg != null && !el.focusedBg.isEmpty()) {
+            try {
+                return android.graphics.Color.parseColor(el.focusedBg);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return ThemeManager.getListButtonFocusedBg();
+    }
+
     private void toggleWebServer() {
         if (isServerRunning) {
             if (webServer != null)
@@ -10457,7 +10468,7 @@ public class MainActivity extends Activity {
                 public void onFocusChange(View v, boolean hasFocus) {
                     if (hasFocus) {
                         btn.setBackground(
-                                createDynamicButtonBackground(ThemeManager.getListButtonFocusedBg(), el.radius));
+                                createDynamicButtonBackground(focusedBgFor(el), el.radius));
 
                         if (isIconOnly) {
                             tvMain.setText("");
