@@ -6069,6 +6069,18 @@ public class MainActivity extends Activity {
         return layout;
     }
 
+    // Fork: "135 artists" style counts for the library rows, from the scanned library (no disk access)
+    private String libCount(String what) {
+        java.util.HashSet<String> set = new java.util.HashSet<>();
+        for (SongItem sg : customLibrary) {
+            String v = what.equals("artists") ? sg.artist : what.equals("albums") ? sg.album
+                    : what.equals("years") ? sg.year : what.equals("genres") ? sg.genre : null;
+            if (v != null && !v.trim().isEmpty()) set.add(v.trim());
+        }
+        int n = what.equals("songs") ? customLibrary.size() : set.size();
+        return n + " " + (n == 1 ? what.substring(0, what.length() - 1) : what);
+    }
+
     // 🚀 [추가 엔진] 기존 코드들이 에러 나지 않도록, 색상 지정을 안 하면 자동으로 0(기본 테마색)을 넘겨주는 보조 함수입니다!
     public View createListButtonWithIcon(String iconUnicode, String textLabel) {
         return createListButtonWithIcon(iconUnicode, textLabel, 0);
@@ -6076,6 +6088,13 @@ public class MainActivity extends Activity {
 
     // 🚀 [메인 엔진 업그레이드] 세 번째 파라미터로 'customColor(도색할 색상)'을 받도록 개조되었습니다.
     public View createListButtonWithIcon(String iconUnicode, String textLabel, final int customColor) {
+        return createListButtonWithIcon(iconUnicode, textLabel, customColor, 0, null);
+    }
+
+    // Fork (Reborn-style library rows): tileColor != 0 draws the icon white on a rounded colour tile,
+    // subtitle != null adds a small grey line under the label (e.g. "135 artists").
+    public View createListButtonWithIcon(String iconUnicode, String textLabel, final int customColor,
+            int tileColor, String subtitle) {
         float d = getResources().getDisplayMetrics().density;
 
         final LinearLayout rowButton = new LinearLayout(this);
@@ -6119,6 +6138,20 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         iconLp.rightMargin = (int) (15 * d);
+        final boolean tiled = tileColor != 0;
+        if (tiled) {
+            int t = (int) (34 * d);
+            iconLp = new LinearLayout.LayoutParams(t, t);
+            iconLp.rightMargin = (int) (14 * d);
+            GradientDrawable tile = new GradientDrawable();
+            tile.setColor(tileColor);
+            tile.setCornerRadius(8 * d);
+            tvIcon.setBackground(tile);
+            tvIcon.setGravity(Gravity.CENTER);
+            tvIcon.setTextSize(19f);
+            tvIcon.setTextColor(0xFFFFFFFF);
+            rowButton.setPadding((int) (12 * d), (int) (7 * d), padRight, (int) (7 * d));
+        }
         tvIcon.setLayoutParams(iconLp);
 
         final TextView tvText = new TextView(this);
@@ -6138,21 +6171,36 @@ public class MainActivity extends Activity {
         tvText.setLayoutParams(textLp);
 
         rowButton.addView(tvIcon);
-        rowButton.addView(tvText);
+        if (subtitle != null) {
+            LinearLayout textBox = new LinearLayout(this);
+            textBox.setOrientation(LinearLayout.VERTICAL);
+            textBox.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            TextView tvSub = new TextView(this);
+            tvSub.setText(subtitle);
+            tvSub.setTextSize(12f);
+            tvSub.setTextColor(ThemeManager.getTextColorSecondary());
+            tvSub.setTypeface(ThemeManager.getCustomFont());
+            tvSub.setSingleLine(true);
+            textBox.addView(tvText);
+            textBox.addView(tvSub);
+            rowButton.addView(textBox);
+        } else {
+            rowButton.addView(tvText);
+        }
 
         rowButton.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override
             public void onFocusChange(View v, boolean hasFocus) {
                 if (hasFocus) {
                     rowButton.setBackground(focusedBg);
-                    tvIcon.setTextColor(ThemeManager.getListButtonFocusedTextColor());
+                    if (!tiled) tvIcon.setTextColor(ThemeManager.getListButtonFocusedTextColor());
                     tvText.setTextColor(ThemeManager.getListButtonFocusedTextColor());
                     tvText.setSelected(true); // 🚀 휠이 닿으면 텍스트가 흐르기 시작!
                     showFastScrollLetter(tvText.getText().toString());
                 } else {
                     // 🚀 [포커스 복구 버그 완전 해결] 포커스가 빠져나갈 때 흰색으로 리셋되지 않고, 처음에 칠했던 색상으로 정확히 복귀합니다!
                     rowButton.setBackground(normalBg);
-                    tvIcon.setTextColor(normalColor);
+                    if (!tiled) tvIcon.setTextColor(normalColor);
                     tvText.setTextColor(normalColor);
                     tvText.setSelected(false); // 🚀 휠이 벗어나면 텍스트 정지!
                 }
@@ -7246,7 +7294,7 @@ public class MainActivity extends Activity {
             if (!isAudiobookLibraryMode) {
                 tvBrowserPath.setText(t("Library") + ": " + t("Music"));
 
-                View btnCoverFlow = createListButtonWithIcon("\uE3B6", t("Cover Flow"));
+                View btnCoverFlow = createListButtonWithIcon("\uE3B6", t("Cover Flow"), 0, 0xFF5B5F97, null);
 
                 // 🚀 [지능형 부팅 스캔 추적 가동 - 라이브러리 선전환 + 투명 로딩 버전]
                 btnCoverFlow.setOnClickListener(v -> {
@@ -7312,7 +7360,7 @@ public class MainActivity extends Activity {
                     }
                 });
                 containerBrowserItems.addView(btnCoverFlow);
-                View btnAll = createListButtonWithIcon("\uE03D", t("All Songs"));
+                View btnAll = createListButtonWithIcon("\uE03D", t("All Songs"), 0, 0xFF2E8B85, libCount("songs"));
                 btnAll.setOnClickListener(v -> {
                     clickFeedback();
                     currentBrowserMode = BROWSER_VIRTUAL_SONGS;
@@ -7320,7 +7368,7 @@ public class MainActivity extends Activity {
                     buildVirtualSongs();
                 });
                 containerBrowserItems.addView(btnAll);
-                View btnShuffleAll = createListButtonWithIcon("", t("Shuffle All"));
+                View btnShuffleAll = createListButtonWithIcon("", t("Shuffle All"), 0, 0xFF4E8F5A, null);
                 btnShuffleAll.setOnClickListener(v -> {
                     clickFeedback();
                     // the scanned library is already in memory; walking ~900 files on the FAT storage stalled the UI
@@ -7336,7 +7384,7 @@ public class MainActivity extends Activity {
                     changeScreen(STATE_PLAYER);
                 });
                 containerBrowserItems.addView(btnShuffleAll);
-                View btnM3uPlaylist = createListButtonWithIcon("\uE05F", t("Playlists"));
+                View btnM3uPlaylist = createListButtonWithIcon("\uE05F", t("Playlists"), 0, 0xFF8A5A9E, null);
                 btnM3uPlaylist.setOnClickListener(v -> {
                     clickFeedback();
                     isPlaylistOpenedFromLibrary = true; // 🚀 확실하게 라이브러리를 거쳐왔음을 도장에 찍습니다!
@@ -7346,7 +7394,7 @@ public class MainActivity extends Activity {
                 });
                 containerBrowserItems.addView(btnM3uPlaylist); // 🚀 [핵심 복구 완료] 만든 버튼을 라이브러리 화면 패널에 단단히 조립합니다!
                 // Button btnFolder = createListButton("📁 " + t("Folders"));
-                View btnFolder = createListButtonWithIcon("\uE2C7", t("Folders"));
+                View btnFolder = createListButtonWithIcon("\uE2C7", t("Folders"), 0, 0xFF3F7FA0, null);
                 btnFolder.setOnClickListener(v -> {
                     clickFeedback();
                     currentBrowserMode = BROWSER_FOLDER;
@@ -7358,7 +7406,7 @@ public class MainActivity extends Activity {
                 // =========================================================
                 // 🚀 [메인 메뉴 통합] 가수 -> 앨범 -> 노래 3단 콤보 전용 버튼!
                 // =========================================================
-                View btnArtist = createListButtonWithIcon("\uE7FD", t("Artists"));
+                View btnArtist = createListButtonWithIcon("\uE7FD", t("Artists"), 0, 0xFF3D6FB0, libCount("artists"));
                 btnArtist.setOnClickListener(v -> {
                     clickFeedback();
                     isArtistAlbumMode = true; // 💡 스위치 ON! (가수를 누르면 앨범 목록으로 100% 납치)
@@ -7370,7 +7418,7 @@ public class MainActivity extends Activity {
                 containerBrowserItems.addView(btnArtist);
 
                 // Button btnAlbum = createListButton("💿 " + t("Albums"));
-                View btnAlbum = createListButtonWithIcon("\uE019", t("Albums"));
+                View btnAlbum = createListButtonWithIcon("\uE019", t("Albums"), 0, 0xFF9E4F6B, libCount("albums"));
                 btnAlbum.setOnClickListener(v -> {
                     clickFeedback();
                     currentBrowserMode = BROWSER_ALBUMS;
@@ -7379,7 +7427,7 @@ public class MainActivity extends Activity {
                 });
                 containerBrowserItems.addView(btnAlbum);
 
-                View btnYear = createListButtonWithIcon("\uE916", t("Years"));
+                View btnYear = createListButtonWithIcon("\uE916", t("Years"), 0, 0xFF8C7A3E, libCount("years"));
                 btnYear.setOnClickListener(v -> {
                     clickFeedback();
                     currentBrowserMode = BROWSER_YEARS;
@@ -7388,7 +7436,7 @@ public class MainActivity extends Activity {
                 });
                 containerBrowserItems.addView(btnYear);
 
-                View btnGenre = createListButtonWithIcon("\uE030", t("Genres"));
+                View btnGenre = createListButtonWithIcon("\uE030", t("Genres"), 0, 0xFF5A63B0, libCount("genres"));
                 btnGenre.setOnClickListener(v -> {
                     clickFeedback();
                     currentBrowserMode = BROWSER_GENRES;
@@ -7473,7 +7521,7 @@ public class MainActivity extends Activity {
                 tvBrowserPath.setText(t("Library") + ": " + t("Audiobooks"));
 
                 // Button btnFolder = createListButton("📁 " + t("Folders"));
-                View btnFolder = createListButtonWithIcon("\uE2C7", t("Folders"));
+                View btnFolder = createListButtonWithIcon("\uE2C7", t("Folders"), 0, 0xFF3F7FA0, null);
                 btnFolder.setOnClickListener(v -> {
                     clickFeedback();
                     currentBrowserMode = BROWSER_FOLDER;
