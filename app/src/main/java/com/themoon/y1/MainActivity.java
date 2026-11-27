@@ -6187,7 +6187,7 @@ public class MainActivity extends Activity {
         tvHdrTitle.setTypeface(ThemeManager.getCustomFont(), Typeface.BOLD);
         StringBuilder sub = new StringBuilder();
         if (first.artist != null && !first.artist.isEmpty()) sub.append(first.artist);
-        if (first.year != null && first.year.trim().matches("\d{4}")) // only a real year, not stray tag text
+        if (first.year != null && first.year.trim().matches("[0-9]{4}")) // only a real year, not stray tag text
             sub.append(sub.length() > 0 ? " · " : "").append(first.year.trim());
         sub.append(sub.length() > 0 ? " · " : "").append(songs.size()).append(songs.size() == 1 ? " song" : " songs");
         tvHdrSub.setText(sub.toString());
