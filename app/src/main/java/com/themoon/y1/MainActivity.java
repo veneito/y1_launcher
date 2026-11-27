@@ -6187,7 +6187,7 @@ public class MainActivity extends Activity {
         tvHdrTitle.setTypeface(ThemeManager.getCustomFont(), Typeface.BOLD);
         StringBuilder sub = new StringBuilder();
         if (first.artist != null && !first.artist.isEmpty()) sub.append(first.artist);
-        if (first.year != null && !first.year.trim().isEmpty() && !first.year.startsWith("Unknown"))
+        if (first.year != null && first.year.trim().matches("\d{4}")) // only a real year, not stray tag text
             sub.append(sub.length() > 0 ? " · " : "").append(first.year.trim());
         sub.append(sub.length() > 0 ? " · " : "").append(songs.size()).append(songs.size() == 1 ? " song" : " songs");
         tvHdrSub.setText(sub.toString());
@@ -9588,7 +9588,7 @@ public class MainActivity extends Activity {
                 int tNum = trackNumberMap.containsKey(song.file.getAbsolutePath())
                         ? trackNumberMap.get(song.file.getAbsolutePath())
                         : 0;
-                if (tNum > 0) {
+                if (tNum > 0 && tNum < 1000) { // fork: some tags hold a date (20201201) in the track field
                     displayTitle = String.format(Locale.US, "%02d. %s", tNum, song.title);
                 }
             }

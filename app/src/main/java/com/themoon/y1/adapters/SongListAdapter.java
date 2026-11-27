@@ -314,7 +314,8 @@ public class SongListAdapter extends BaseAdapter {
                         v.setSelected(true);
                     }
 
-                    MainActivity.instance.showFastScrollLetter(title);
+                    if (!MainActivity.instance.virtualQueryType.contains("ALBUM")) // fork: album rows start with "01.", popup would only show #
+                        MainActivity.instance.showFastScrollLetter(title);
                 } else {
                     // 🎯 포커스가 빠져나갈 때, 재생 기록이 있으면 진행률 바를 다시 복구해 줍니다!
                     if (pos > 0 && dur > 0) {
