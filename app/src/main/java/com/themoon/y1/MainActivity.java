@@ -9581,17 +9581,8 @@ public class MainActivity extends Activity {
 
         // 원본 라이브러리(DB)를 오염시키지 않기 위해, 화면에 던져줄 껍데기만 새로 포장합니다.
         for (SongItem song : targetSongs) {
+            // Fork: plain titles on album pages too (no "01. " prefix); the list is still sorted by track number
             String displayTitle = song.title;
-
-            // 앨범 모드일 때만 제목 앞에 "01. ", "02. " 형식으로 트랙 번호 훈장 달아주기!
-            if (virtualQueryType.contains("ALBUM")) {
-                int tNum = trackNumberMap.containsKey(song.file.getAbsolutePath())
-                        ? trackNumberMap.get(song.file.getAbsolutePath())
-                        : 0;
-                if (tNum > 0 && tNum < 1000) { // fork: some tags hold a date (20201201) in the track field
-                    displayTitle = String.format(Locale.US, "%02d. %s", tNum, song.title);
-                }
-            }
 
             // 예쁘게 포장된 제목으로 새 아이템을 만들어서 화면용 바구니에 쏙!
             displaySongs.add(new SongItem(song.file, displayTitle, song.artist, song.album, song.year, song.genre));
