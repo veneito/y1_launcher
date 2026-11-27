@@ -363,6 +363,12 @@ public class MainActivity extends Activity {
     public android.widget.HorizontalScrollView hzIndexScroll;
     public LinearLayout layoutIndexContainer;
     public LinearLayout listContainer; // 🚀 이거 꼭 추가해 줘!
+    // Fork: Reborn-style album page header (cover, title, artist - year - songs, Play All / Shuffle All)
+    private LinearLayout albumHeader;
+    private ImageView ivHdrCover;
+    private TextView tvHdrTitle, tvHdrSub;
+    private Button btnHdrPlay, btnHdrShuffle;
+    private final List<File> albumHeaderFiles = new ArrayList<>();
     public boolean isLoopScrollOn = true; // 💡 기본적으로 무한 루프가 작동하도록 true 장전!
     private TextView tvWidgetClock;
     // 🚀 [수정] 가로형 바(Bar) 클래스로 이름 변경!
@@ -1978,6 +1984,12 @@ public class MainActivity extends Activity {
         // 🚀 3. [핵심 엔진] 리스트뷰를 켜고 끌 때, 부모 컨테이너(알파벳 바)도 알아서 같이 반응하도록 개조!
         listVirtualSongs = new ListView(this) {
             @Override
+            public void setAdapter(android.widget.ListAdapter adapter) {
+                if (albumHeader != null) albumHeader.setVisibility(View.GONE); // only album pages have one
+                super.setAdapter(adapter);
+            }
+
+            @Override
             public void setVisibility(int visibility) {
                 super.setVisibility(visibility);
                 if (listContainer != null) {
@@ -1991,6 +2003,9 @@ public class MainActivity extends Activity {
         listVirtualSongs.setSelector(new ColorDrawable(0));
         listVirtualSongs.setItemsCanFocus(true);
         listVirtualSongs.setSoundEffectsEnabled(false);
+
+        buildAlbumHeader();
+        listContainer.addView(albumHeader);
 
         // 🚀 5. 리스트뷰를 수직 컨테이너에 조립
         listContainer.addView(listVirtualSongs, new LinearLayout.LayoutParams(
@@ -6069,6 +6084,133 @@ public class MainActivity extends Activity {
         return layout;
     }
 
+    private Button headerButton(String label) {
+        float d = getResources().getDisplayMetrics().density;
+        final Button b = new Button(this);
+        b.setText(label);
+        b.setAllCaps(false);
+        b.setTextSize(13f);
+        b.setTypeface(ThemeManager.getCustomFont(), Typeface.BOLD);
+        b.setSoundEffectsEnabled(false);
+        b.setFocusable(true);
+        b.setPadding((int) (14 * d), 0, (int) (14 * d), 0);
+        b.setMinHeight(0);
+        b.setMinimumHeight(0);
+        final GradientDrawable normal = new GradientDrawable();
+        normal.setColor(0x26FFFFFF);
+        normal.setCornerRadius(14 * d);
+        final GradientDrawable focused = new GradientDrawable();
+        focused.setColor(ThemeManager.getListButtonFocusedBg() | 0x40000000);
+        focused.setCornerRadius(14 * d);
+        focused.setStroke((int) (1 * d), 0xCCFFFFFF);
+        b.setBackground(normal);
+        b.setTextColor(ThemeManager.getTextColorPrimary());
+        b.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View v, boolean hasFocus) {
+                b.setBackground(hasFocus ? focused : normal);
+            }
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (int) (28 * d));
+        lp.rightMargin = (int) (8 * d);
+        b.setLayoutParams(lp);
+        return b;
+    }
+
+    private void buildAlbumHeader() {
+        float d = getResources().getDisplayMetrics().density;
+        albumHeader = new LinearLayout(this);
+        albumHeader.setOrientation(LinearLayout.HORIZONTAL);
+        albumHeader.setGravity(Gravity.CENTER_VERTICAL);
+        albumHeader.setPadding((int) (10 * d), (int) (6 * d), (int) (10 * d), (int) (8 * d));
+        albumHeader.setVisibility(View.GONE);
+
+        ivHdrCover = new ImageView(this);
+        ivHdrCover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        LinearLayout.LayoutParams coverLp = new LinearLayout.LayoutParams((int) (78 * d), (int) (78 * d));
+        coverLp.rightMargin = (int) (12 * d);
+        albumHeader.addView(ivHdrCover, coverLp);
+
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        tvHdrTitle = new TextView(this);
+        tvHdrTitle.setTextSize(19f);
+        tvHdrTitle.setSingleLine(true);
+        tvHdrTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        tvHdrSub = new TextView(this);
+        tvHdrSub.setTextSize(12f);
+        tvHdrSub.setSingleLine(true);
+        tvHdrSub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        col.addView(tvHdrTitle);
+        col.addView(tvHdrSub);
+
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setPadding(0, (int) (6 * d), 0, 0);
+        btnHdrPlay = headerButton(t("Play All"));
+        btnHdrShuffle = headerButton(t("Shuffle All"));
+        btnHdrPlay.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                clickFeedback();
+                playAlbumHeader(false);
+            }
+        });
+        btnHdrShuffle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                clickFeedback();
+                playAlbumHeader(true);
+            }
+        });
+        btnRow.addView(btnHdrPlay);
+        btnRow.addView(btnHdrShuffle);
+        col.addView(btnRow);
+        albumHeader.addView(col, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+    }
+
+    private void playAlbumHeader(boolean shuffle) {
+        if (albumHeaderFiles.isEmpty()) return;
+        List<File> files = new ArrayList<>(albumHeaderFiles); // album (track) order
+        if (shuffle) java.util.Collections.shuffle(files);
+        com.themoon.y1.managers.AudioPlayerManager.getInstance().playTrackList(files, 0);
+        changeScreen(STATE_PLAYER);
+    }
+
+    private void showAlbumHeader(List<SongItem> songs) {
+        final SongItem first = songs.get(0);
+        albumHeaderFiles.clear();
+        for (SongItem s : songs) albumHeaderFiles.add(s.file);
+        tvHdrTitle.setText(first.album);
+        tvHdrTitle.setTextColor(ThemeManager.getTextColorPrimary());
+        tvHdrTitle.setTypeface(ThemeManager.getCustomFont(), Typeface.BOLD);
+        StringBuilder sub = new StringBuilder();
+        if (first.artist != null && !first.artist.isEmpty()) sub.append(first.artist);
+        if (first.year != null && !first.year.trim().isEmpty() && !first.year.startsWith("Unknown"))
+            sub.append(sub.length() > 0 ? " · " : "").append(first.year.trim());
+        sub.append(sub.length() > 0 ? " · " : "").append(songs.size()).append(songs.size() == 1 ? " song" : " songs");
+        tvHdrSub.setText(sub.toString());
+        tvHdrSub.setTextColor(ThemeManager.getTextColorSecondary());
+        tvHdrSub.setTypeface(ThemeManager.getCustomFont());
+        ivHdrCover.setImageResource(R.drawable.default_album);
+        albumHeader.setVisibility(View.VISIBLE);
+        final String album = first.album;
+        final float d = getResources().getDisplayMetrics().density * 78f / 60f; // buildCover sizes for 60dp
+        new Thread(new Runnable() { // cover: same loader as the album list, off the UI thread
+            @Override
+            public void run() {
+                final Drawable cover = com.themoon.y1.adapters.CategoryListAdapter.buildCover(album, d);
+                if (cover == null) return;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (album.equals(tvHdrTitle.getText().toString())) ivHdrCover.setImageDrawable(cover);
+                    }
+                });
+            }
+        }).start();
+    }
+
     // Fork: the A-Z popup only helps in long lists (song folders), not in menus like Settings or the library
     private static boolean inLongList(View row) {
         return row.getParent() instanceof ViewGroup && ((ViewGroup) row.getParent()).getChildCount() > 25;
@@ -9462,6 +9604,7 @@ public class MainActivity extends Activity {
         // =======================================================
         SongListAdapter adapter = new SongListAdapter(displaySongs);
         listVirtualSongs.setAdapter(adapter);
+        if (virtualQueryType.contains("ALBUM") && !targetSongs.isEmpty()) showAlbumHeader(targetSongs);
 
         // 🚀 [스마트 포커스] 현재 재생 중인 곡이 리스트에 있다면 그 인덱스를 찾아냅니다!
         int targetIndex = -1;
@@ -12197,6 +12340,29 @@ public class MainActivity extends Activity {
                     return true;
                 }
                 return true;
+            }
+            // Fork: album header buttons take the wheel while one of them has focus
+            if (currentScreenState == STATE_BROWSER && albumHeader != null && albumHeader.getVisibility() == View.VISIBLE
+                    && (keyCode == 21 || keyCode == 22)) {
+                View f = getCurrentFocus();
+                if (f == btnHdrPlay || f == btnHdrShuffle) {
+                    if (keyCode == 21 && f == btnHdrShuffle) btnHdrPlay.requestFocus();
+                    if (keyCode == 22) {
+                        if (f == btnHdrPlay) btnHdrShuffle.requestFocus();
+                        else if (listVirtualSongs.getChildCount() > 0) {
+                            listVirtualSongs.setSelectionFromTop(0, 0);
+                            listVirtualSongs.getChildAt(0).requestFocus();
+                        }
+                    }
+                    clickFeedback();
+                    return true;
+                }
+                if (keyCode == 21 && listVirtualSongs.getFocusedChild() != null
+                        && listVirtualSongs.getPositionForView(listVirtualSongs.getFocusedChild()) == 0) {
+                    btnHdrShuffle.requestFocus();
+                    clickFeedback();
+                    return true;
+                }
             }
             // 🚀 [여기서부터 덮어쓰기!] 초고속 리스트뷰가 켜져있을 때는, 시스템 본연의 부드러운 스크롤 엔진에 휠 신호를 넘깁니다!
             if (currentScreenState == STATE_BROWSER && listVirtualSongs != null

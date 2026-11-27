@@ -87,7 +87,7 @@ public class CategoryListAdapter extends BaseAdapter {
     }
 
     // Runs on COVER_LOADER: finds the album's art (saved path, manual cover, embedded tag) and scales it.
-    private static Drawable buildCover(String name, float d) {
+    public static Drawable buildCover(String name, float d) { // fork: also used by the album page header
         Drawable leftDrawable = null;
         try {
                 String artPath = "";
