@@ -393,6 +393,8 @@ public class MainActivity extends Activity {
     // Fork: a second, always-on visualizer in the player's open space (theme player_ui "visualizer" box,
     // Settings > Visualizer in Player). Fed by JJ's audioVisualizer (no second engine).
     private AudioVisualizerView inlineVisView;
+    // one background thread for Visualizer enable/disable/release, in order, off the UI thread
+    private static final java.util.concurrent.ExecutorService VIS_WORKER = java.util.concurrent.Executors.newSingleThreadExecutor();
     private boolean inlineVisPlaced;
     public AudioVisualizerView visualizerView;
     // 🚀 [신규 추가] LRC 가사 파서 및 UI 변수
@@ -11275,9 +11277,18 @@ public class MainActivity extends Activity {
         try {
             // 🚀 [완벽 해결] 매번 새롭게 엔진을 만들어서 장착합니다! (메모리 누수 원천 차단)
             if (audioVisualizer != null) {
-                audioVisualizer.setEnabled(false);
-                audioVisualizer.release();
+                final android.media.audiofx.Visualizer old = audioVisualizer;
                 audioVisualizer = null;
+                VIS_WORKER.execute(new Runnable() { // fork: these native calls block during track changes
+                    @Override
+                    public void run() {
+                        try {
+                            old.setEnabled(false);
+                            old.release();
+                        } catch (Exception ignored) {
+                        }
+                    }
+                });
             }
 
             // ⭕ [아래 코드로 덮어쓰기]
@@ -11321,13 +11332,20 @@ public class MainActivity extends Activity {
             inlineVisView.setVisibility(on ? View.VISIBLE : View.GONE);
             inlineVisView.setStyle(prefs.getInt("visualizer_style", AudioVisualizerView.STYLE_BARS));
         }
-        try {
-            // only on a real change: setEnabled is a blocking native call that froze the UI when it ran on
-            // every player refresh during a track change
-            boolean want = on || isVisualizerShowing;
-            if (audioVisualizer != null && audioVisualizer.getEnabled() != want) audioVisualizer.setEnabled(want);
-        } catch (Exception e) {
-        }
+        // setEnabled is a native call that blocks while the audio changes tracks (froze the UI), so it runs on
+        // VIS_WORKER; the UI thread never waits on it
+        final boolean want = on || isVisualizerShowing;
+        final android.media.audiofx.Visualizer v = audioVisualizer;
+        if (v == null) return;
+        VIS_WORKER.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (v.getEnabled() != want) v.setEnabled(want);
+                } catch (Exception ignored) { // released meanwhile (next track): its replacement gets its own call
+                }
+            }
+        });
     }
 
     // 🚀 [가사 엔진] .lrc 파일을 찾아 시간과 텍스트를 분리해 메모리에 담습니다.
