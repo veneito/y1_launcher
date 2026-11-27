@@ -17,6 +17,7 @@ public class ThemeManager {
         public String textRightColor, textRightFocusedColor;
         public String iconNormal, iconFocused, previewImage;
         public String focusedBg = ""; // fork: per-button highlight colour (theme "focused_bg"), else the theme-wide btnFocused
+        public boolean textBold; // fork: theme "text_bold" (home buttons; library rows are bold)
         public String action, gravity;
         public int radius, focusIndex, textSize, textSecondarySize;
         public String textPosition, textAlign;
@@ -313,6 +314,7 @@ public class ThemeManager {
                                     (float) el.optDouble("focus_scale", 1.0) // 🚀 JSON 읽기 (안 적혀있으면 기본 1.0배)
                                     ));
                                     theme.menuElements.get(theme.menuElements.size() - 1).focusedBg = el.optString("focused_bg", "");
+                                    theme.menuElements.get(theme.menuElements.size() - 1).textBold = el.optBoolean("text_bold", false);
                                 }
                             }
 

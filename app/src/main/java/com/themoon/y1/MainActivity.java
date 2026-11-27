@@ -10594,7 +10594,7 @@ public class MainActivity extends Activity {
             }
 
             btn.setLayoutParams(createDynamicLayoutParams(el, density));
-            tvMain.setTypeface(ThemeManager.getCustomFont(), Typeface.NORMAL);
+            tvMain.setTypeface(ThemeManager.getCustomFont(), el.textBold ? Typeface.BOLD : Typeface.NORMAL); // fork: theme text_bold
             tvRight.setTypeface(ThemeManager.getCustomFont(), Typeface.NORMAL);
 
             if (!isIconOnly) {
