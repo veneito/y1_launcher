@@ -429,6 +429,7 @@ public class MainActivity extends Activity {
     public int currentBrowserMode = BROWSER_ROOT;
     public String virtualQueryType = "";
     public String virtualQueryValue = "";
+    private File virtualFolderFilter; // fork: virtualQueryType "FOLDER" = songs directly in this folder
     public List<File> virtualSongList = new ArrayList<>();
     // 💡 백그라운드 미디어 제어권(스크린 오프) 변수
     // 🚀 [팟캐스트 전용] 다운로드 고유 ID와 진행률(%)을 실시간으로 추적하는 지능형 메모장
@@ -9535,6 +9536,7 @@ public class MainActivity extends Activity {
                         (virtualQueryType.equals("COVER_FLOW_ALBUM") && song.album.equals(virtualQueryValue)) ||
                         (virtualQueryType.equals("YEAR") && song.year.equals(virtualQueryValue)) ||
                         (virtualQueryType.equals("GENRE") && song.genre.equals(virtualQueryValue)) ||
+                        (virtualQueryType.equals("FOLDER") && virtualFolderFilter != null && virtualFolderFilter.equals(song.file.getParentFile())) ||
                         // =========================================================
                         // 🚀 [신규 콤보 추가] 연도+가수+앨범 & 장르+가수+앨범 모두 일치할 때만 통과!
                         // =========================================================
@@ -9930,6 +9932,25 @@ public class MainActivity extends Activity {
                 }
             }
 
+            // Fork: one View per file froze the Y1 on big folders (~940 songs in Music). Past 60, open them in the
+            // fast virtual list (only visible rows are built) instead.
+            if (audioFiles.size() > 60) {
+                final File folderHere = currentFolder;
+                View big = createListButtonWithIcon("", audioFiles.size() + " " + t("songs"), 0, 0xFF2E8B85, null);
+                big.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        clickFeedback();
+                        virtualFolderFilter = folderHere;
+                        virtualQueryType = "FOLDER";
+                        virtualQueryValue = folderHere.getName();
+                        currentBrowserMode = BROWSER_VIRTUAL_SONGS;
+                        buildVirtualSongs();
+                    }
+                });
+                containerBrowserItems.addView(big);
+                audioFiles.clear();
+            }
             for (final File audio : audioFiles) {
                 String iconCode = (isAudiobookLibraryMode || currentBrowserMode == BROWSER_AUDIOBOOKS) ? "\uE310"
                         : "\uE405";
