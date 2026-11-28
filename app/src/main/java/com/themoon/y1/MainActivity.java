@@ -386,6 +386,37 @@ public class MainActivity extends Activity {
     private List<String> currentScrollIndexList = new ArrayList<>();
     private long lastWheelTime = 0;
     private int wheelFastCount = 0;
+    // Fork: fast ticks are merged and applied up to 5 rows per 64 ms flush instead of dropped
+    private int wheelPending = 0;
+    private boolean wheelFlushPosted = false;
+    private final Runnable wheelFlush = new Runnable() {
+        @Override
+        public void run() {
+            wheelFlushPosted = false;
+            if (listVirtualSongs == null || wheelPending == 0) return;
+            int steps = Math.max(-5, Math.min(5, wheelPending));
+            wheelPending -= steps;
+            View fc = listVirtualSongs.getFocusedChild();
+            int pos = fc != null ? listVirtualSongs.getPositionForView(fc) : listVirtualSongs.getSelectedItemPosition();
+            final int target = Math.max(0, Math.min(listVirtualSongs.getCount() - 1, Math.max(pos, 0) + steps));
+            int v = target - listVirtualSongs.getFirstVisiblePosition();
+            View child = (v >= 0 && v < listVirtualSongs.getChildCount()) ? listVirtualSongs.getChildAt(v) : null;
+            if (child != null && child.getTop() >= 0 && child.getBottom() <= listVirtualSongs.getHeight()) {
+                child.requestFocus();
+            } else {
+                listVirtualSongs.setSelectionFromTop(target, steps < 0 ? 0 : Math.max(0, listVirtualSongs.getHeight() - (fc != null ? fc.getHeight() : 0)));
+                listVirtualSongs.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        int w = target - listVirtualSongs.getFirstVisiblePosition();
+                        if (w >= 0 && w < listVirtualSongs.getChildCount()) listVirtualSongs.getChildAt(w).requestFocus();
+                    }
+                });
+            }
+            clickFeedback();
+            if (wheelPending != 0) { wheelFlushPosted = true; listVirtualSongs.postDelayed(this, 64); }
+        }
+    };
     public static MainActivity instance;
     public long lastTrackChangeTime = 0; // 🚀 기기의 중복 키 신호를 막아줄 방어막 변수
     // 💡 [추가] 오디오 스펙트럼 관련 변수들
@@ -12432,8 +12463,16 @@ public class MainActivity extends Activity {
                 long now = System.currentTimeMillis();
                 if (now - lastWheelTime < 40 && wheelFastCount < 2) {
                     lastWheelTime = now;
+                    // Fork: queue the tick instead of dropping it (idea from Solar's ListWheelCoalescer, Apache-2.0, github.com/thesolarproject/solar)
+                    int dir = keyCode == 22 ? 1 : -1;
+                    if (wheelPending * dir < 0) wheelPending = 0; // reversal clears the backlog
+                    wheelPending += dir;
+                    if (!wheelFlushPosted) { wheelFlushPosted = true; listVirtualSongs.postDelayed(wheelFlush, 64); }
                     return true;
                 }
+                wheelPending = 0;
+                wheelFlushPosted = false;
+                listVirtualSongs.removeCallbacks(wheelFlush);
                 boolean isFastScroll = false;
 
                 // 💡 [오토매틱 엔진] 0.05초(50ms) 이내에 연속으로 휠이 3칸 이상 돌아가면 '고속 점프 모드' 발동!
