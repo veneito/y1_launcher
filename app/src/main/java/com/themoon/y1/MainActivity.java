@@ -390,10 +390,6 @@ public class MainActivity extends Activity {
     public long lastTrackChangeTime = 0; // 🚀 기기의 중복 키 신호를 막아줄 방어막 변수
     // 💡 [추가] 오디오 스펙트럼 관련 변수들
     private android.media.audiofx.Visualizer audioVisualizer;
-    // Fork: a second, always-on visualizer in the player's open space (theme player_ui "visualizer" box,
-    // Settings > Visualizer in Player). Fed by JJ's audioVisualizer (no second engine).
-    private AudioVisualizerView inlineVisView;
-    private boolean inlineVisPlaced;
     public AudioVisualizerView visualizerView;
     // 🚀 [신규 추가] LRC 가사 파서 및 UI 변수
     private ScrollView lyricScrollView;
@@ -839,11 +835,6 @@ public class MainActivity extends Activity {
                             }
                             try { if (audioVisualizer != null && !audioVisualizer.getEnabled()) audioVisualizer.setEnabled(true); } catch(Exception e){}
                         }
-                    }
-                    // fork: the inline visualizer turns the capture on here too, like the full-screen one above.
-                    // Enabling it right at track start deadlocked the Y1's audio driver; this once-a-second tick doesn't.
-                    if (inlineVisView != null && inlineVisView.getVisibility() == View.VISIBLE) {
-                        try { if (audioVisualizer != null && !audioVisualizer.getEnabled()) audioVisualizer.setEnabled(true); } catch(Exception e){}
                     }
                     // =========================================================
                     int current = am.getCurrentPosition();
@@ -3991,21 +3982,7 @@ public class MainActivity extends Activity {
         if (ivShuffle != null && ivShuffle.getParent() != null) ((ViewGroup)ivShuffle.getParent()).removeView(ivShuffle);
         if (ivRepeat != null && ivRepeat.getParent() != null) ((ViewGroup)ivRepeat.getParent()).removeView(ivRepeat);
         if (containerQuality != null && containerQuality.getParent() != null) ((ViewGroup)containerQuality.getParent()).removeView(containerQuality);
-        inlineVisPlaced = false;
-        if (inlineVisView != null && inlineVisView.getParent() != null) ((ViewGroup) inlineVisView.getParent()).removeView(inlineVisView);
         for (ThemeManager.MenuElement el : theme.playerElements) {
-            if ("visualizer".equals(el.id)) { // fork: inline visualizer box
-                if (inlineVisView == null) inlineVisView = new AudioVisualizerView(this);
-                inlineVisView.setStyle(prefs.getInt("visualizer_style", AudioVisualizerView.STYLE_BARS));
-                FrameLayout.LayoutParams vlp = new FrameLayout.LayoutParams((int) (el.width * d), (int) (el.height * d));
-                vlp.gravity = Gravity.TOP | Gravity.LEFT;
-                vlp.leftMargin = (int) (el.x * d);
-                vlp.topMargin = (int) (el.y * d);
-                inlineVisView.setTag("player_box_visualizer");
-                rootPlayerMode.addView(inlineVisView, vlp);
-                inlineVisPlaced = true;
-                continue;
-            }
             View targetView = null;
 
             if ("background".equals(el.id)) {
@@ -4431,6 +4408,17 @@ public class MainActivity extends Activity {
     }
 
     // 🚀 [신규 엔진] 스펙트럼과 가사창이 프로그레시브 바 바로 위에 자연스럽게 위치하도록 자동 정렬!
+    // Fork: the theme's player_ui cover box (top|left with a size), or null for JJ's full-width visualizer
+    private ThemeManager.MenuElement themeCoverSpot() {
+        if (ThemeManager.availableThemes.isEmpty()) return null;
+        for (ThemeManager.MenuElement el : ThemeManager.getCurrentTheme().playerElements) {
+            if ("album_art".equals(el.id) && el.width > 0 && el.height > 0
+                    && el.gravity != null && el.gravity.contains("top") && el.gravity.contains("left"))
+                return el;
+        }
+        return null;
+    }
+
     private void updateVisualizerAndLyricsLayout() {
         if (visualizerView == null || lyricScrollView == null) return;
 
@@ -4475,7 +4463,16 @@ public class MainActivity extends Activity {
             if (visualizerView.getParent() == null && rootPlayerMode != null) {
                 rootPlayerMode.addView(visualizerView, 0); // 뒷배경
             }
-            visualizerView.setLayoutParams(lyricLp);
+            ThemeManager.MenuElement art = themeCoverSpot();
+            if (art != null) { // fork: the visualizer takes the cover's place; title/artist stay beside it
+                FrameLayout.LayoutParams visLp = new FrameLayout.LayoutParams((int) (art.width * d), (int) (art.height * d));
+                visLp.gravity = Gravity.TOP | Gravity.LEFT;
+                visLp.leftMargin = (int) (art.x * d);
+                visLp.topMargin = (int) (art.y * d);
+                visualizerView.setLayoutParams(visLp);
+            } else {
+                visualizerView.setLayoutParams(lyricLp);
+            }
         }
         if (lyricScrollView != null) {
             if (lyricScrollView.getParent() == null && rootPlayerMode != null) {
@@ -11140,7 +11137,6 @@ public class MainActivity extends Activity {
                 applyThemeToPlayerUI();
             }
         }
-        setupInlineVisualizer(); // fork: keep the shared capture on for the inline visualizer
     }
     public boolean isQuickOverlayVisible() {
         return (layoutShuffleRepeatOverlay != null && layoutShuffleRepeatOverlay.getVisibility() == View.VISIBLE);
@@ -11243,11 +11239,12 @@ public class MainActivity extends Activity {
         if (isVisualizerShowing) {
             // 1. 투명 사각형(DummyBox)이 공간을 지탱해주므로, 알맹이(ivAlbumArt 및 텍스트)만 숨겨도 레이아웃이 절대 무너지지 않습니다!
             if (ivAlbumArt != null) ivAlbumArt.setVisibility(View.INVISIBLE);
-            if (tvPlayerTitle != null) tvPlayerTitle.setVisibility(View.INVISIBLE);
-            if (tvPlayerArtist != null) tvPlayerArtist.setVisibility(View.INVISIBLE);
-            if (tvPlayerAlbum != null) tvPlayerAlbum.setVisibility(View.INVISIBLE); // fork: hidden with the title/artist in visualizer mode (keeps its space)
-
             boolean hasLyrics = (currentLyrics != null && !currentLyrics.isEmpty()) || (plainLyrics != null && !plainLyrics.isEmpty());
+            // fork: the visualizer sits in the cover's spot, so the text stays; lyrics still take the whole area
+            boolean keepText = themeCoverSpot() != null && !hasLyrics;
+            if (tvPlayerTitle != null) tvPlayerTitle.setVisibility(keepText ? View.VISIBLE : View.INVISIBLE);
+            if (tvPlayerArtist != null) tvPlayerArtist.setVisibility(keepText ? View.VISIBLE : View.INVISIBLE);
+            if (tvPlayerAlbum != null) tvPlayerAlbum.setVisibility(keepText ? View.VISIBLE : View.INVISIBLE);
 
             if (hasLyrics) {
                 if (visualizerView != null) visualizerView.setVisibility(View.GONE);
@@ -11273,7 +11270,6 @@ public class MainActivity extends Activity {
 
             if (layoutVisProgress != null) layoutVisProgress.setVisibility(View.GONE);
         }
-        setupInlineVisualizer(); // fork: inline one steps aside for the full-screen visualizer
     }
     // 💡 [수정] 오디오 엔진에 빨대를 꽂아 주파수 데이터를 빼오는 함수
     public void setupVisualizer() {
@@ -11302,9 +11298,6 @@ public class MainActivity extends Activity {
                             && visualizerView.getVisibility() == View.VISIBLE) {
                         visualizerView.updateVisualizer(fft, currentAlbumColor);
                     }
-                    // fork: the same capture feeds the inline visualizer (one engine; a second one lost the track on song changes)
-                    if (inlineVisView != null && inlineVisView.getVisibility() == View.VISIBLE)
-                        inlineVisView.updateVisualizer(fft, currentAlbumColor);
                 }
             }, android.media.audiofx.Visualizer.getMaxCaptureRate() / 2, false, true);
 
@@ -11312,19 +11305,6 @@ public class MainActivity extends Activity {
                 audioVisualizer.setEnabled(true);
             }
         } catch (Exception e) {
-        }
-        setupInlineVisualizer();
-    }
-
-    // Fork: show/hide the inline visualizer. It has no engine of its own: JJ's audioVisualizer feeds it, and the
-    // once-a-second player tick switches that capture on (never at track start: that deadlocks the audio driver).
-    // Off when the setting is off, the theme has no box, or the full-screen visualizer is showing.
-    public void setupInlineVisualizer() {
-        boolean on = inlineVisPlaced && inlineVisView != null && !isVisualizerShowing
-                && prefs.getBoolean("vis_in_player", false);
-        if (inlineVisView != null) {
-            inlineVisView.setVisibility(on ? View.VISIBLE : View.GONE);
-            inlineVisView.setStyle(prefs.getInt("visualizer_style", AudioVisualizerView.STYLE_BARS));
         }
     }
 
