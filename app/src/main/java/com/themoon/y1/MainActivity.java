@@ -386,6 +386,19 @@ public class MainActivity extends Activity {
     private List<String> currentScrollIndexList = new ArrayList<>();
     private long lastWheelTime = 0;
     private int wheelFastCount = 0;
+    // Fork: album art corner rounding (issue #39), stored as an index into ART_CORNERS (dp)
+    public static final int[] ART_CORNERS = {0, 6, 12, 20, 32};
+    public static final String[] ART_CORNER_NAMES = {"Off", "Small", "Medium", "Large", "Max"};
+    public int artCornerLevel() {
+        int i = prefs != null ? prefs.getInt("art_corner_level", 0) : 0;
+        return i >= 0 && i < ART_CORNERS.length ? i : 0;
+    }
+    public void applyArtCorners() {
+        if (ivAlbumArt instanceof com.themoon.y1.views.RoundedImageView)
+            ((com.themoon.y1.views.RoundedImageView) ivAlbumArt).setCornerRadius(
+                    ART_CORNERS[artCornerLevel()] * getResources().getDisplayMetrics().density);
+    }
+    private boolean backHoldFired = false;
     // Fork: fast ticks are merged and applied up to 5 rows per 64 ms flush instead of dropped
     private int wheelPending = 0;
     private boolean wheelFlushPosted = false;
@@ -1985,7 +1998,7 @@ public class MainActivity extends Activity {
         }
         // 🚀 신규 스위치들의 기존 세팅값을 기억 금고에서 복원합니다.
 
-        isLoopScrollOn = prefs.getBoolean("loop_scroll_on", true);
+        isLoopScrollOn = prefs.getBoolean("loop_scroll", true); // fork: JJ saved "loop_scroll" but read "loop_scroll_on"
         updateMainMenuBackground(); // 💡 앱을 켜면 저장된 상태에 맞춰 배경 자동 적용
 
         layoutBrowserMode = findViewById(R.id.layout_browser_mode);
@@ -2305,6 +2318,7 @@ public class MainActivity extends Activity {
         tvPlayerTimeCurrent = findViewById(R.id.tv_player_time_current);
         tvPlayerTimeTotal = findViewById(R.id.tv_player_time_total);
         ivAlbumArt = findViewById(R.id.iv_album_art);
+        applyArtCorners();
         ivPlayerBgBlur = findViewById(R.id.iv_player_bg_blur);
         ivPlayerBgBlur.setScaleX(1.05f);
         ivPlayerBgBlur.setScaleY(1.05f);

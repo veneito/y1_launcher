@@ -369,6 +369,20 @@ public class SettingsMenuManager {
         });
         main.containerSettingsItems.addView(btnLoopScrollToggle);
 
+        // Fork: album art corner rounding (issue #39); each click steps to the next size
+        final LinearLayout btnArtCorners = createSettingRow(t("Album Art Corners"), t(main.ART_CORNER_NAMES[main.artCornerLevel()]));
+        btnArtCorners.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                clickFeedback();
+                int next = (main.artCornerLevel() + 1) % main.ART_CORNERS.length;
+                try { main.prefs.edit().putInt("art_corner_level", next).commit(); } catch (Exception e) {}
+                ((TextView) btnArtCorners.getChildAt(1)).setText(t(main.ART_CORNER_NAMES[next]));
+                main.applyArtCorners();
+            }
+        });
+        main.containerSettingsItems.addView(btnArtCorners);
+
         final LinearLayout btnScreenOffCtrl = createSettingRow(t("Screen-Off Control"), main.isScreenOffControlEnabled ? t("ON") : t("OFF"));
         btnScreenOffCtrl.setOnClickListener(new View.OnClickListener() {
             @Override
