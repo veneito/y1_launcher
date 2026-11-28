@@ -4072,7 +4072,7 @@ public class MainActivity extends Activity {
                     targetView.setVisibility(View.VISIBLE);
                 }
 
-                if (!(isVisualizerShowing && "progress_bar".equals(el.id))) {
+                if (!(isVisualizerShowing && !visSideBySide() && "progress_bar".equals(el.id))) { // fork: side-by-side keeps the theme's progress row
                     // 부품을 강제로 뜯어와 도화지에 붙이는 마법
                     ViewGroup currentParent = (ViewGroup) targetView.getParent();
                 if (currentParent != null && currentParent != rootPlayerMode) {
@@ -11119,7 +11119,7 @@ public class MainActivity extends Activity {
         View albumContainer = (View) ivAlbumArt.getParent();
 
         if (isVisualizerShowing) {
-            if (ivAlbumArt != null) ivAlbumArt.setVisibility(View.INVISIBLE);
+            if (ivAlbumArt != null) ivAlbumArt.setVisibility(visSideBySide() ? View.VISIBLE : View.INVISIBLE); // fork
             if (albumContainer != null) albumContainer.setVisibility(View.VISIBLE);
             updateVisualizerAndLyricsLayout();
 
