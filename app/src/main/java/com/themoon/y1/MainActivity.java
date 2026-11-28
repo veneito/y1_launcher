@@ -824,7 +824,7 @@ public class MainActivity extends Activity {
                     // 🚀 [다음 곡 스펙트럼/가사 증발 방어막!]
                     if (isVisualizerShowing) {
                         // 곡이 바뀌면서 시스템이 앨범을 다시 켰다면? 투명 사각형을 믿고 알맹이만 조용히 숨깁니다!
-                        if (ivAlbumArt != null && ivAlbumArt.getVisibility() == View.VISIBLE) {
+                        if (ivAlbumArt != null && ivAlbumArt.getVisibility() == View.VISIBLE && !visSideBySide()) { // fork
                             ivAlbumArt.setVisibility(View.INVISIBLE);
                         }
 
@@ -4054,7 +4054,10 @@ public class MainActivity extends Activity {
                 // 🚀 [커스텀 테마 가사/스펙트럼 모드 연동]
                 // 가사나 스펙트럼이 켜진 상태에서는 기본 테마 적용시처럼 프로그레시브 바를 하단에 배치하고,
                 // 노래 정보(제목, 아티스트, 파일정보, 셔플/반복 아이콘, 커스텀 박스/선)는 안 보이게 처리합니다!
-                if (isVisualizerShowing) {
+                if (isVisualizerShowing && visSideBySide() && ("album_art".equals(el.id) || "title".equals(el.id)
+                        || "artist".equals(el.id) || "album".equals(el.id) || "album_title".equals(el.id))) {
+                    targetView.setVisibility(View.VISIBLE); // fork: placed as normal, text moved under the cover below
+                } else if (isVisualizerShowing) {
                     if ("album_art".equals(el.id) || "title".equals(el.id) || "artist".equals(el.id) || "album".equals(el.id) || "album_title".equals(el.id)) {
                         targetView.setVisibility(View.INVISIBLE);
                         continue;
@@ -4298,6 +4301,23 @@ public class MainActivity extends Activity {
         }
         updatePlayerStatusIndicators(); // 🚀 [아이콘 색상 동기화] 테마 변경 시 셔플/반복 아이콘 색상 및 상태 즉시 반영!
         // =========================================================
+        if (visSideBySide()) {
+            ThemeManager.MenuElement art = themeCoverSpot();
+            int top = art.y + art.height + 8;
+            int width = (int) (getResources().getDisplayMetrics().widthPixels - 2 * art.x * d);
+            View[] lines = {tvTitle, tvArtist, tvAlbum};
+            int[] heights = {30, 24, 22};
+            for (int i = 0; i < lines.length; i++) {
+                if (lines[i] == null || !(lines[i].getLayoutParams() instanceof FrameLayout.LayoutParams)) continue;
+                FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) lines[i].getLayoutParams();
+                lp.gravity = Gravity.TOP | Gravity.LEFT;
+                lp.leftMargin = (int) (art.x * d);
+                lp.topMargin = (int) (top * d);
+                lp.width = width;
+                lines[i].setLayoutParams(lp);
+                top += heights[i] + 2;
+            }
+        }
     } // <-- applyThemeToPlayerUI() 끝나는 괄호!
 
     // 🚀 [요구사항] 사용자 커스텀 테마 디자인과 상관없이 노래 제목, 아티스트, 프로그레시브 바를 순정 음악 플레이어 화면처럼 원상 복구 및 유지!
@@ -4408,6 +4428,12 @@ public class MainActivity extends Activity {
     }
 
     // 🚀 [신규 엔진] 스펙트럼과 가사창이 프로그레시브 바 바로 위에 자연스럽게 위치하도록 자동 정렬!
+    // Fork: visualizer mode with the cover left, visualizer right and the text underneath
+    private boolean visSideBySide() {
+        boolean hasLyrics = (currentLyrics != null && !currentLyrics.isEmpty()) || (plainLyrics != null && !plainLyrics.isEmpty());
+        return isVisualizerShowing && themeCoverSpot() != null && !hasLyrics;
+    }
+
     // Fork: the theme's player_ui cover box (top|left with a size), or null for JJ's full-width visualizer
     private ThemeManager.MenuElement themeCoverSpot() {
         if (ThemeManager.availableThemes.isEmpty()) return null;
@@ -4464,10 +4490,12 @@ public class MainActivity extends Activity {
                 rootPlayerMode.addView(visualizerView, 0); // 뒷배경
             }
             ThemeManager.MenuElement art = themeCoverSpot();
-            if (art != null) { // fork: the visualizer takes the cover's place; title/artist stay beside it
-                FrameLayout.LayoutParams visLp = new FrameLayout.LayoutParams((int) (art.width * d), (int) (art.height * d));
+            if (art != null) { // fork: cover stays on the left, the visualizer fills the space to its right
+                int x = art.x + art.width + 16;
+                int w = (int) (getResources().getDisplayMetrics().widthPixels - (x + art.x) * d);
+                FrameLayout.LayoutParams visLp = new FrameLayout.LayoutParams(w, (int) (art.height * d));
                 visLp.gravity = Gravity.TOP | Gravity.LEFT;
-                visLp.leftMargin = (int) (art.x * d);
+                visLp.leftMargin = (int) (x * d);
                 visLp.topMargin = (int) (art.y * d);
                 visualizerView.setLayoutParams(visLp);
             } else {
@@ -11238,7 +11266,7 @@ public class MainActivity extends Activity {
 
         if (isVisualizerShowing) {
             // 1. 투명 사각형(DummyBox)이 공간을 지탱해주므로, 알맹이(ivAlbumArt 및 텍스트)만 숨겨도 레이아웃이 절대 무너지지 않습니다!
-            if (ivAlbumArt != null) ivAlbumArt.setVisibility(View.INVISIBLE);
+            if (ivAlbumArt != null) ivAlbumArt.setVisibility(visSideBySide() ? View.VISIBLE : View.INVISIBLE); // fork
             boolean hasLyrics = (currentLyrics != null && !currentLyrics.isEmpty()) || (plainLyrics != null && !plainLyrics.isEmpty());
             // fork: the visualizer sits in the cover's spot, so the text stays; lyrics still take the whole area
             boolean keepText = themeCoverSpot() != null && !hasLyrics;
