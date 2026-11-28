@@ -12883,6 +12883,20 @@ public class MainActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         int keyCode = event.getKeyCode();
         int action = event.getAction();
+        // Fork (issue #39): hold Back ~0.7 s to jump to Now Playing; held repeats never step back further
+        if (keyCode == KeyEvent.KEYCODE_BACK && action == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() == 0) {
+                backHoldFired = false;
+            } else {
+                if (!backHoldFired && event.getEventTime() - event.getDownTime() >= 700
+                        && currentScreenState != STATE_PLAYER && !currentPlaylist.isEmpty()) {
+                    backHoldFired = true;
+                    changeScreen(STATE_PLAYER);
+                    clickFeedback();
+                }
+                return true;
+            }
+        }
         // 💡 확인(Center) 버튼이거나 재생/정지 버튼일 때 감시 시작! (기기마다 번호가 달라서 다 넣어둠)
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER ||
                 keyCode == 23 || keyCode == 66 || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
